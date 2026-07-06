@@ -39,7 +39,7 @@ public class OrbitCamera : MonoBehaviour
 
     private void Start()
     {
-        if (lockCursorOnStart)
+        if (lockCursorOnStart && !NetworkDebugUI.WantsCursor)
         {
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
@@ -48,6 +48,18 @@ public class OrbitCamera : MonoBehaviour
 
     private void Update()
     {
+        // Yield the cursor to the network debug panel until a session is running,
+        // otherwise its Host/Join buttons can never be clicked.
+        if (NetworkDebugUI.WantsCursor)
+        {
+            if (Cursor.lockState != CursorLockMode.None)
+            {
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+            }
+            return;
+        }
+
         // Allow the user to unlock cursor with Escape (handy for stopping Play mode too)
         if (Input.GetKeyDown(KeyCode.Escape))
         {
