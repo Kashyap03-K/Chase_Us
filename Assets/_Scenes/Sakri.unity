@@ -2367,6 +2367,8 @@ GameObject:
   - component: {fileID: 954808343}
   - component: {fileID: 954808346}
   - component: {fileID: 954808345}
+  - component: {fileID: 954808347}
+  - component: {fileID: 954808348}
   m_Layer: 0
   m_Name: _Bootstrap
   m_TagString: Untagged
@@ -2426,6 +2428,58 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a8a79437f67d46544b53113df1d6d8f8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NetworkBootstrap
+--- !u!114 &954808347
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 954808342}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e307010f9ad3ef546b8201687672e793, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ModeSelectUI
+  mapSelectUI: {fileID: 0}
+  networkDebugUI: {fileID: 0}
+  referenceResolution: {x: 1920, y: 1080}
+  canvasSortingOrder: 100
+--- !u!114 &954808348
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 954808342}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2790fa512078c574c8cd9e8541bc74d1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MapSelectUI
+  modeSelectUI: {fileID: 0}
+  networkDebugUI: {fileID: 0}
+  maps:
+  - id: sakri
+    displayName: SAKRI ARENA
+    metaLine: "4\u20138 PLAYERS \xB7 OPEN GROUND"
+    description: Grass field with crates, trees, and a truck. Balanced sightlines,
+      mid-range chase distances.
+    locked: 0
+    previewTint: {r: 0.1, g: 0.29, b: 0.17, a: 1}
+  - id: locked_1
+    displayName: ???
+    metaLine: LOCKED
+    description: "A tighter, more vertical map \u2014 pitched for Sprint 3."
+    locked: 1
+    previewTint: {r: 0.09, g: 0.06, b: 0.15, a: 1}
+  - id: locked_2
+    displayName: ???
+    metaLine: LOCKED
+    description: "Something new \u2014 team pitches next planning cycle."
+    locked: 1
+    previewTint: {r: 0.09, g: 0.06, b: 0.15, a: 1}
+  referenceResolution: {x: 1920, y: 1080}
+  canvasSortingOrder: 100
 --- !u!1001 &1021576749
 PrefabInstance:
   m_ObjectHideFlags: 0
