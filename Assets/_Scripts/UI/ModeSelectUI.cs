@@ -21,6 +21,7 @@ using UnityEngine.UI;
 public class ModeSelectUI : MonoBehaviour
 {
     [Header("Wiring (auto-found if left null)")]
+    [SerializeField] private MapSelectUI mapSelectUI;
     [SerializeField, Tooltip("Temporary. Replaced by Jaivik's E2/E3 screens.")]
     private NetworkDebugUI networkDebugUI;
 
@@ -35,6 +36,10 @@ public class ModeSelectUI : MonoBehaviour
 
     private void Awake()
     {
+        if (mapSelectUI == null)
+        {
+            mapSelectUI = FindFirstObjectByType<MapSelectUI>();
+        }
         if (networkDebugUI == null)
         {
             networkDebugUI = FindFirstObjectByType<NetworkDebugUI>();
@@ -279,9 +284,17 @@ public class ModeSelectUI : MonoBehaviour
             return;
         }
 
-        Debug.Log("[ModeSelectUI] Play Online → routing to Host/Join panel (temporary NetworkDebugUI target).");
+        if (mapSelectUI == null)
+        {
+            Debug.LogWarning("[ModeSelectUI] Play Online: no MapSelectUI found — falling back to legacy NetworkDebugUI path.");
+            Hide();
+            SetDebugUIVisible(true);
+            return;
+        }
+
+        Debug.Log("[ModeSelectUI] Play Online → showing Map Select.");
         Hide();
-        SetDebugUIVisible(true);
+        mapSelectUI.Show();
     }
 
     private void ShowNotice(string message)
@@ -292,7 +305,15 @@ public class ModeSelectUI : MonoBehaviour
         noticeExpireAt = Time.unscaledTime + NoticeDurationSeconds;
     }
 
-    private void Hide()
+    public void Show()
+    {
+        if (canvasGroup == null) return;
+        canvasGroup.alpha = 1f;
+        canvasGroup.blocksRaycasts = true;
+        canvasGroup.interactable = true;
+    }
+
+    public void Hide()
     {
         if (canvasGroup == null) return;
         canvasGroup.alpha = 0f;
