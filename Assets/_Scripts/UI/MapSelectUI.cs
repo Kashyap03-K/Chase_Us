@@ -35,6 +35,7 @@ public class MapSelectUI : MonoBehaviour
     }
 
     [Header("Wiring (auto-found if left null)")]
+    [SerializeField] private HostJoinChoiceUI hostJoinChoiceUI;
     [SerializeField] private ModeSelectUI modeSelectUI;
     [SerializeField, Tooltip("Temporary. Replaced by Jaivik's E2 (Host Lobby) when it lands.")]
     private NetworkDebugUI networkDebugUI;
@@ -89,6 +90,10 @@ public class MapSelectUI : MonoBehaviour
 
     private void Awake()
     {
+        if (hostJoinChoiceUI == null)
+        {
+            hostJoinChoiceUI = FindFirstObjectByType<HostJoinChoiceUI>();
+        }
         if (modeSelectUI == null)
         {
             modeSelectUI = FindFirstObjectByType<ModeSelectUI>();
@@ -499,13 +504,19 @@ public class MapSelectUI : MonoBehaviour
     private void OnBackClicked()
     {
         Hide();
-        if (modeSelectUI != null)
+        // Prefer routing back to the Host/Join sub-choice — that's where the user came from
+        // when they picked HOST. Fall back to Mode Select if the sub-choice isn't in the scene.
+        if (hostJoinChoiceUI != null)
+        {
+            hostJoinChoiceUI.Show();
+        }
+        else if (modeSelectUI != null)
         {
             modeSelectUI.Show();
         }
     }
 
-    private void OnConfirmClicked()
+    private async void OnConfirmClicked()
     {
         if (string.IsNullOrEmpty(highlightedMapId))
         {
@@ -514,15 +525,26 @@ public class MapSelectUI : MonoBehaviour
         }
 
         SelectedMapId = highlightedMapId;
-        Debug.Log($"[MapSelectUI] Map confirmed: {SelectedMapId} — routing to Host/Join panel (temporary NetworkDebugUI target).");
+        Debug.Log($"[MapSelectUI] Map confirmed: {SelectedMapId} — starting host.");
         Hide();
 
         Confirmed?.Invoke(SelectedMapId);
 
-        if (networkDebugUI != null)
+        // Host directly. LobbyRoomUI observes OnServerStarted and takes over the screen.
+        // Fallback to the legacy NetworkDebugUI panel only if NetworkBootstrap is missing.
+        if (NetworkBootstrap.Instance != null)
         {
-            networkDebugUI.enabled = true;
+            string code = await NetworkBootstrap.Instance.StartHostAsync(maxConnections: 3);
+            if (code == null)
+            {
+                Debug.LogError("[MapSelectUI] StartHostAsync returned null — host did not start. Returning to Map Select.");
+                Show();
+            }
+            return;
         }
+
+        Debug.LogWarning("[MapSelectUI] NetworkBootstrap.Instance is null — using legacy NetworkDebugUI as fallback.");
+        if (networkDebugUI != null) networkDebugUI.enabled = true;
     }
 
     // ---------- Shared helpers ----------

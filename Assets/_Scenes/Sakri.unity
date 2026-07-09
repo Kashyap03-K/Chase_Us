@@ -2369,6 +2369,9 @@ GameObject:
   - component: {fileID: 954808345}
   - component: {fileID: 954808347}
   - component: {fileID: 954808348}
+  - component: {fileID: 954808349}
+  - component: {fileID: 954808350}
+  - component: {fileID: 954808351}
   m_Layer: 0
   m_Name: _Bootstrap
   m_TagString: Untagged
@@ -2440,6 +2443,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e307010f9ad3ef546b8201687672e793, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ModeSelectUI
+  hostJoinChoiceUI: {fileID: 0}
   mapSelectUI: {fileID: 0}
   networkDebugUI: {fileID: 0}
   referenceResolution: {x: 1920, y: 1080}
@@ -2456,6 +2460,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2790fa512078c574c8cd9e8541bc74d1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MapSelectUI
+  hostJoinChoiceUI: {fileID: 0}
   modeSelectUI: {fileID: 0}
   networkDebugUI: {fileID: 0}
   maps:
@@ -2478,6 +2483,56 @@ MonoBehaviour:
     description: "Something new \u2014 team pitches next planning cycle."
     locked: 1
     previewTint: {r: 0.09, g: 0.06, b: 0.15, a: 1}
+  referenceResolution: {x: 1920, y: 1080}
+  canvasSortingOrder: 100
+--- !u!114 &954808349
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 954808342}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ee018c7e42a12774ba0e3b12bafd4e76, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LobbyRoomUI
+  modeSelectUI: {fileID: 0}
+  networkDebugUI: {fileID: 0}
+  referenceResolution: {x: 1920, y: 1080}
+  canvasSortingOrder: 90
+  maxPlayers: 4
+--- !u!114 &954808350
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 954808342}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ca027c3b4e7e90741a32fe7c51bc3188, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::JoinScreenUI
+  hostJoinChoiceUI: {fileID: 0}
+  modeSelectUI: {fileID: 0}
+  referenceResolution: {x: 1920, y: 1080}
+  canvasSortingOrder: 100
+--- !u!114 &954808351
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 954808342}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b7cba03c63ceb9a4495e0128253fe973, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HostJoinChoiceUI
+  modeSelectUI: {fileID: 0}
+  mapSelectUI: {fileID: 0}
+  joinScreenUI: {fileID: 0}
   referenceResolution: {x: 1920, y: 1080}
   canvasSortingOrder: 100
 --- !u!1001 &1021576749

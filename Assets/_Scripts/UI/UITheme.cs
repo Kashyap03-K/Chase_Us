@@ -20,5 +20,8 @@ public static class UITheme
     public static readonly Color32 AccentHi  = new Color32(0xFF, 0x60, 0x96, 0xFF);
     public static readonly Color32 Accent2   = new Color32(0x4E, 0xEB, 0xD9, 0xFF); // electric cyan — Online + ready states
     public static readonly Color32 Accent2Hi = new Color32(0x7F, 0xF3, 0xE4, 0xFF);
+    public static readonly Color32 Chain     = new Color32(0xB4, 0x7C, 0xFF, 0xFF); // chain purple — In-Chain role (KAS-20)
+    public static readonly Color32 Warn      = new Color32(0xFF, 0xB8, 0x4E, 0xFF); // amber — connecting / caution
+    public static readonly Color32 Danger    = new Color32(0xFF, 0x6B, 0x6B, 0xFF); // soft red — error / disconnect
     public static readonly Color32 White     = new Color32(0xFF, 0xFF, 0xFF, 0xFF);
 }

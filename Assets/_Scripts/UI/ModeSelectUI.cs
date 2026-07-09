@@ -21,6 +21,7 @@ using UnityEngine.UI;
 public class ModeSelectUI : MonoBehaviour
 {
     [Header("Wiring (auto-found if left null)")]
+    [SerializeField] private HostJoinChoiceUI hostJoinChoiceUI;
     [SerializeField] private MapSelectUI mapSelectUI;
     [SerializeField, Tooltip("Temporary. Replaced by Jaivik's E2/E3 screens.")]
     private NetworkDebugUI networkDebugUI;
@@ -36,6 +37,10 @@ public class ModeSelectUI : MonoBehaviour
 
     private void Awake()
     {
+        if (hostJoinChoiceUI == null)
+        {
+            hostJoinChoiceUI = FindFirstObjectByType<HostJoinChoiceUI>();
+        }
         if (mapSelectUI == null)
         {
             mapSelectUI = FindFirstObjectByType<MapSelectUI>();
@@ -284,17 +289,28 @@ public class ModeSelectUI : MonoBehaviour
             return;
         }
 
-        if (mapSelectUI == null)
+        // Preferred: sub-choice screen so the user picks Host or Join deliberately.
+        if (hostJoinChoiceUI != null)
         {
-            Debug.LogWarning("[ModeSelectUI] Play Online: no MapSelectUI found — falling back to legacy NetworkDebugUI path.");
+            Debug.Log("[ModeSelectUI] Play Online → showing Host/Join choice.");
             Hide();
-            SetDebugUIVisible(true);
+            hostJoinChoiceUI.Show();
             return;
         }
 
-        Debug.Log("[ModeSelectUI] Play Online → showing Map Select.");
+        // Fallback: skip the sub-choice, route straight to Map Select (host-only path).
+        if (mapSelectUI != null)
+        {
+            Debug.LogWarning("[ModeSelectUI] Play Online: no HostJoinChoiceUI found — skipping sub-choice, routing to Map Select (host path only).");
+            Hide();
+            mapSelectUI.Show();
+            return;
+        }
+
+        // Last resort: legacy IMGUI panel.
+        Debug.LogWarning("[ModeSelectUI] Play Online: neither HostJoinChoiceUI nor MapSelectUI found — falling back to legacy NetworkDebugUI path.");
         Hide();
-        mapSelectUI.Show();
+        SetDebugUIVisible(true);
     }
 
     private void ShowNotice(string message)
