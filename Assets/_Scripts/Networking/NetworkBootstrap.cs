@@ -63,13 +63,17 @@ public class NetworkBootstrap : MonoBehaviour
 
             SubscribeConnectionCallbacks();
 
+            // StartHost() fires OnServerStarted synchronously — handlers (LobbyRoomUI etc.)
+            // read this property at that moment, so it MUST be populated before the call.
+            JoinCode = joinCode;
+
             if (!NetworkManager.Singleton.StartHost())
             {
+                JoinCode = null;
                 Debug.LogError("[NetworkBootstrap] NetworkManager.StartHost() returned false — host did not start.");
                 return null;
             }
 
-            JoinCode = joinCode;
             Debug.Log($"[NetworkBootstrap] HOST STARTED. Relay join code: {joinCode} — share this with the joining client.");
             return joinCode;
         }
@@ -124,7 +128,9 @@ public class NetworkBootstrap : MonoBehaviour
                 return false;
             }
 
-            Debug.Log($"[NetworkBootstrap] CLIENT STARTED with join code {joinCode.Trim()}. Waiting for connection callback...");
+            // Persist so lobby UIs can render the code the client joined with.
+            JoinCode = joinCode.Trim();
+            Debug.Log($"[NetworkBootstrap] CLIENT STARTED with join code {JoinCode}. Waiting for connection callback...");
             return true;
         }
         catch (RelayServiceException e)
