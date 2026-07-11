@@ -46,12 +46,16 @@ public class JoinScreenUI : MonoBehaviour
         Hide();
     }
 
+    /// <summary>True while this screen is shown — lets OrbitCamera yield the cursor.</summary>
+    public static bool IsVisible { get; private set; }
+
     public void Show()
     {
         if (canvasGroup == null) return;
         canvasGroup.alpha = 1f;
         canvasGroup.blocksRaycasts = true;
         canvasGroup.interactable = true;
+        IsVisible = true;
 
         if (input != null)
         {
@@ -70,6 +74,7 @@ public class JoinScreenUI : MonoBehaviour
         canvasGroup.blocksRaycasts = false;
         canvasGroup.interactable = false;
         joining = false;
+        IsVisible = false;
     }
 
     // ---------- Canvas construction ----------

@@ -26,7 +26,6 @@ public class LobbyRoomUI : MonoBehaviour
 {
     [Header("Wiring (auto-found if left null)")]
     [SerializeField] private ModeSelectUI modeSelectUI;
-    [SerializeField] private NetworkDebugUI networkDebugUI;
 
     [Header("Layout")]
     [SerializeField] private Vector2 referenceResolution = new Vector2(1920, 1080);
@@ -62,10 +61,6 @@ public class LobbyRoomUI : MonoBehaviour
         if (modeSelectUI == null)
         {
             modeSelectUI = FindFirstObjectByType<ModeSelectUI>();
-        }
-        if (networkDebugUI == null)
-        {
-            networkDebugUI = FindFirstObjectByType<NetworkDebugUI>();
         }
     }
 
@@ -163,8 +158,6 @@ public class LobbyRoomUI : MonoBehaviour
         ApplyRoleView();
         Show();
 
-        // Debug panel yields once we take over.
-        if (networkDebugUI != null) networkDebugUI.enabled = false;
         // Ensure entry menus are down too — Confirm on Map Select left Mode/Map hidden already,
         // but be defensive if state got out of sync.
         if (modeSelectUI != null) modeSelectUI.Hide();
@@ -175,7 +168,6 @@ public class LobbyRoomUI : MonoBehaviour
         Hide();
         // Route the local player back to Mode Select so they don't stare at a dead scene.
         if (modeSelectUI != null) modeSelectUI.Show();
-        if (networkDebugUI != null) networkDebugUI.enabled = false;
     }
 
     private void Show()

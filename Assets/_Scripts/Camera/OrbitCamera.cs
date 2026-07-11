@@ -37,9 +37,12 @@ public class OrbitCamera : MonoBehaviour
     // Public read-only accessor so PlayerMovement can align to camera's yaw
     public float Yaw => yaw;
 
-    // Menus own the cursor: pre-session screens via NetworkDebugUI.WantsCursor
-    // (goes with the debug UI in E5), the post-session lobby via LobbyRoomUI.
-    private static bool MenuWantsCursor => NetworkDebugUI.WantsCursor || LobbyRoomUI.IsVisible;
+    // Menus own the cursor: pre-session screens (Mode Select, Host/Join Choice,
+    // Map Select, Join) via their own IsVisible flags, the post-session lobby
+    // via LobbyRoomUI.
+    private static bool MenuWantsCursor =>
+        ModeSelectUI.IsVisible || HostJoinChoiceUI.IsVisible || MapSelectUI.IsVisible ||
+        JoinScreenUI.IsVisible || LobbyRoomUI.IsVisible;
 
     private void Start()
     {

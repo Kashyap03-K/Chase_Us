@@ -63,10 +63,6 @@ Everything lives in `Assets/_Scenes/Sakri.unity`:
     and (on the host) `ConnectedClients.Count`. All failure paths log a
     distinct `[NetworkBootstrap] … FAILED` message — if you see silence, the
     code did not run.
-  - `NetworkDebugUI` — temporary OnGUI panel (Host button, join-code field).
-    Delete in a later sprint; when you do, also remove the
-    `NetworkDebugUI.WantsCursor` guard in `OrbitCamera.Update`/`Start` (the
-    camera yields the mouse cursor to this panel before a session starts).
 - **`NetworkManager`** (root GameObject): NGO `NetworkManager` + `UnityTransport`
   components, all defaults. No player prefab yet (Sprint 2).
 
@@ -79,14 +75,16 @@ off.
 1. **Clone:** ParrelSync → Clones Manager → create/open a clone (first creation
    takes a few minutes). ParrelSync gives each editor its own UGS
    auth profile, so the instances sign in as different players automatically.
-2. **Both editors:** open `Sakri.unity`, press Play, wait until the debug panel
-   shows `Signed in: <PlayerId>`. The two PlayerIds must differ.
-3. **Original editor:** click **"Host (create Relay + join code)"** in the
-   Game-view panel. Within ~2s the panel shows a 6-character join code.
+2. **Both editors:** open `Sakri.unity`, press Play, wait for the Mode Select
+   screen (sign-in happens silently in the background — `ServicesBootstrap`
+   logs `Signed in anonymously` in the Console once it's done). The two
+   PlayerIds in the logs must differ.
+3. **Original editor:** click **Play Online → Host**, pick a map, and confirm.
+   Within ~2s the Lobby Room screen shows a 6-character join code.
    - ⚠️ Do **not** use the Start Host/Start Client buttons in the
      NetworkManager *inspector* — those bypass Relay (localhost only, no join
      code) and will look like a working host that clients can never reach.
-4. **Clone:** type the join code into the panel's text field, click **Join**.
+4. **Clone:** click **Play Online → Join**, type the join code, confirm.
 
 ### Expected console output
 
@@ -123,8 +121,10 @@ as `[NetworkBootstrap] … FAILED (<reason>)`.
 
 - **Clicking Host/Join does nothing, no console output at all** — something is
   eating the cursor. `OrbitCamera` locks the mouse for camera control; it is
-  supposed to yield while `NetworkDebugUI.WantsCursor` is true. If you add a
-  new cursor-locking script, give it the same guard.
+  supposed to yield while any menu screen is visible (`ModeSelectUI`,
+  `HostJoinChoiceUI`, `MapSelectUI`, `JoinScreenUI`, or `LobbyRoomUI` —
+  each exposes a static `IsVisible`, checked in `OrbitCamera.MenuWantsCursor`).
+  If you add a new cursor-locking script, give it the same guard.
 - **Join fails with a Relay error mentioning the join code** — codes expire
   when the host allocation dies (host stopped Play, or ~stale allocation).
   Re-host, get a fresh code.

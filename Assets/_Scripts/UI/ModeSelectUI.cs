@@ -12,9 +12,7 @@ using UnityEngine.UI;
 /// component onto any GameObject in the scene and it appears on Play.
 ///
 /// Routing:
-///   * Play Online → hides this screen, re-enables the temporary NetworkDebugUI
-///     (host + join-code panel). Swap-out point when Jaivik's E2/E3 (Host Lobby
-///     + Join screen) land — replace SetDebugUIVisible with the new screens.
+///   * Play Online → hides this screen, shows the Host/Join choice screen.
 ///   * Play LAN → shows a "not yet implemented" notice. NetworkBootstrap has no
 ///     LAN transport path yet; when it does, wire this to that flow.
 /// </summary>
@@ -23,8 +21,6 @@ public class ModeSelectUI : MonoBehaviour
     [Header("Wiring (auto-found if left null)")]
     [SerializeField] private HostJoinChoiceUI hostJoinChoiceUI;
     [SerializeField] private MapSelectUI mapSelectUI;
-    [SerializeField, Tooltip("Temporary. Replaced by Jaivik's E2/E3 screens.")]
-    private NetworkDebugUI networkDebugUI;
 
     [Header("Layout")]
     [SerializeField] private Vector2 referenceResolution = new Vector2(1920, 1080);
@@ -45,16 +41,12 @@ public class ModeSelectUI : MonoBehaviour
         {
             mapSelectUI = FindFirstObjectByType<MapSelectUI>();
         }
-        if (networkDebugUI == null)
-        {
-            networkDebugUI = FindFirstObjectByType<NetworkDebugUI>();
-        }
     }
 
     private void Start()
     {
         BuildCanvas();
-        SetDebugUIVisible(false);
+        Show();
     }
 
     private void Update()
@@ -307,10 +299,7 @@ public class ModeSelectUI : MonoBehaviour
             return;
         }
 
-        // Last resort: legacy IMGUI panel.
-        Debug.LogWarning("[ModeSelectUI] Play Online: neither HostJoinChoiceUI nor MapSelectUI found — falling back to legacy NetworkDebugUI path.");
-        Hide();
-        SetDebugUIVisible(true);
+        Debug.LogError("[ModeSelectUI] Play Online: neither HostJoinChoiceUI nor MapSelectUI found in the scene — cannot route anywhere.");
     }
 
     private void ShowNotice(string message)
@@ -321,12 +310,16 @@ public class ModeSelectUI : MonoBehaviour
         noticeExpireAt = Time.unscaledTime + NoticeDurationSeconds;
     }
 
+    /// <summary>True while this screen is shown — lets OrbitCamera yield the cursor.</summary>
+    public static bool IsVisible { get; private set; }
+
     public void Show()
     {
         if (canvasGroup == null) return;
         canvasGroup.alpha = 1f;
         canvasGroup.blocksRaycasts = true;
         canvasGroup.interactable = true;
+        IsVisible = true;
     }
 
     public void Hide()
@@ -335,13 +328,6 @@ public class ModeSelectUI : MonoBehaviour
         canvasGroup.alpha = 0f;
         canvasGroup.blocksRaycasts = false;
         canvasGroup.interactable = false;
-    }
-
-    private void SetDebugUIVisible(bool visible)
-    {
-        if (networkDebugUI != null)
-        {
-            networkDebugUI.enabled = visible;
-        }
+        IsVisible = false;
     }
 }
