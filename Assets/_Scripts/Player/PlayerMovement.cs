@@ -54,6 +54,8 @@ public class PlayerMovement : NetworkBehaviour
     [Header("Chain (F3)")]
     [Tooltip("Force a CAUGHT player's own input applies to their chained Rigidbody — enough to tug and strain ('holding hands'), not to drive freely.")]
     [SerializeField] private float caughtMoveForce = 15f;
+    [Tooltip("Tug-force multiplier while a caught player holds sprint — straining against the rope. Placeholder ratio, tune in playtests.")]
+    [SerializeField] private float caughtSprintMultiplier = 1.6f;
 
     [Header("Rigidbody locomotion (F3 Change 1 — physics-driven Hunter)")]
     [Tooltip("Acceleration toward desired velocity for a Rigidbody-driven player. Higher = snappier and less rope influence; lower = floatier, more visible tug-of-war.")]
@@ -206,10 +208,9 @@ public class PlayerMovement : NetworkBehaviour
             if (IsCaughtInChain)
             {
                 // F3: chained players are Rigidbody+joint-driven — forces are applied
-                // in FixedUpdate. Here we only surface the anim blend from intent.
+                // in FixedUpdate (jump edge consumed there too). Anim blend from intent.
                 Vector2 chainMove = Vector2.ClampMagnitude(pendingInput.Move, 1f);
-                netAnimSpeed.Value = chainMove.sqrMagnitude > 0.001f ? 1f : 0f;
-                pendingInput.JumpPressed = false; // jump unused while chained
+                netAnimSpeed.Value = chainMove.sqrMagnitude > 0.001f ? (pendingInput.Sprint ? 2f : 1f) : 0f;
             }
             else if (IsPhysicsDriven)
             {
@@ -258,22 +259,38 @@ public class PlayerMovement : NetworkBehaviour
     /// <summary>
     /// F3: a caught player's own input becomes force on their chained body — it
     /// tugs against the joint so the chain reads as "holding hands", not luggage.
+    /// Sprint strains harder against the rope; jump works too (same placeholder
+    /// ground probe as the Hunter) — the joint simply yanks back mid-air.
     /// </summary>
     private void ApplyCaughtTug(Rigidbody body)
     {
         Vector2 clamped = Vector2.ClampMagnitude(pendingInput.Move, 1f);
         Vector3 rawInput = new Vector3(clamped.x, 0f, clamped.y);
-        if (rawInput.sqrMagnitude <= 0.001f) return;
 
-        // Same camera-relative interpretation as the CC path.
-        Vector3 moveDirection = Quaternion.Euler(0f, pendingInput.CameraYaw, 0f) * rawInput;
+        if (rawInput.sqrMagnitude > 0.001f)
+        {
+            // Same camera-relative interpretation as the CC path.
+            Vector3 moveDirection = Quaternion.Euler(0f, pendingInput.CameraYaw, 0f) * rawInput;
 
-        body.AddForce(moveDirection * caughtMoveForce, ForceMode.Force);
+            float tugForce = caughtMoveForce * (pendingInput.Sprint ? caughtSprintMultiplier : 1f);
+            body.AddForce(moveDirection * tugForce, ForceMode.Force);
 
-        // Face where they're pulling. MoveRotation lets the joint's angular
-        // limits push back instead of being overwritten.
-        Quaternion targetRotation = Quaternion.LookRotation(moveDirection, Vector3.up);
-        body.MoveRotation(Quaternion.Slerp(body.rotation, targetRotation, rotationSpeed * Time.fixedDeltaTime));
+            // Face where they're pulling. MoveRotation lets the joint's angular
+            // limits push back instead of being overwritten.
+            Quaternion targetRotation = Quaternion.LookRotation(moveDirection, Vector3.up);
+            body.MoveRotation(Quaternion.Slerp(body.rotation, targetRotation, rotationSpeed * Time.fixedDeltaTime));
+        }
+
+        // PLACEHOLDER grounding, same as the Hunter's — replace when real
+        // fall/land animations exist.
+        if (pendingInput.JumpPressed &&
+            Physics.Raycast(body.position + Vector3.up, Vector3.down, groundProbeDistance))
+        {
+            Vector3 v = body.linearVelocity;
+            v.y = Mathf.Sqrt(-2f * Physics.gravity.y * jumpHeight);
+            body.linearVelocity = v;
+        }
+        pendingInput.JumpPressed = false; // consumed here, not in Update, for this path
     }
 
     /// <summary>
