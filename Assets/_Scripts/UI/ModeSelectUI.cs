@@ -13,14 +13,14 @@ using UnityEngine.UI;
 ///
 /// Routing:
 ///   * Play Online → hides this screen, shows the Host/Join choice screen.
-///   * Play LAN → shows a "not yet implemented" notice. NetworkBootstrap has no
-///     LAN transport path yet; when it does, wire this to that flow.
+///   * Play LAN → hides this screen, shows the LAN host/discover screen (KAS-23).
 /// </summary>
 public class ModeSelectUI : MonoBehaviour
 {
     [Header("Wiring (auto-found if left null)")]
     [SerializeField] private HostJoinChoiceUI hostJoinChoiceUI;
     [SerializeField] private MapSelectUI mapSelectUI;
+    [SerializeField] private LanConnectUI lanConnectUI;
 
     [Header("Layout")]
     [SerializeField] private Vector2 referenceResolution = new Vector2(1920, 1080);
@@ -40,6 +40,10 @@ public class ModeSelectUI : MonoBehaviour
         if (mapSelectUI == null)
         {
             mapSelectUI = FindFirstObjectByType<MapSelectUI>();
+        }
+        if (lanConnectUI == null)
+        {
+            lanConnectUI = FindAnyObjectByType<LanConnectUI>();
         }
     }
 
@@ -268,8 +272,16 @@ public class ModeSelectUI : MonoBehaviour
 
     private void OnLanClicked()
     {
-        Debug.LogWarning("[ModeSelectUI] Play LAN clicked — LAN flow is not yet implemented in NetworkBootstrap.");
-        ShowNotice("LAN mode coming soon — use Play Online for now.");
+        if (lanConnectUI != null)
+        {
+            Debug.Log("[ModeSelectUI] Play LAN → showing LAN host/discover screen.");
+            Hide();
+            lanConnectUI.Show();
+            return;
+        }
+
+        Debug.LogWarning("[ModeSelectUI] Play LAN clicked but no LanConnectUI found in the scene.");
+        ShowNotice("LAN mode unavailable — LanConnectUI missing from scene.");
     }
 
     private void OnOnlineClicked()

@@ -38,11 +38,11 @@ public class OrbitCamera : MonoBehaviour
     public float Yaw => yaw;
 
     // Menus own the cursor: pre-session screens (Mode Select, Host/Join Choice,
-    // Map Select, Join) via their own IsVisible flags, the post-session lobby
-    // via LobbyRoomUI.
+    // Map Select, Join, LAN) via their own IsVisible flags, the post-session
+    // lobby via LobbyRoomUI.
     private static bool MenuWantsCursor =>
         ModeSelectUI.IsVisible || HostJoinChoiceUI.IsVisible || MapSelectUI.IsVisible ||
-        JoinScreenUI.IsVisible || LobbyRoomUI.IsVisible;
+        JoinScreenUI.IsVisible || LanConnectUI.IsVisible || LobbyRoomUI.IsVisible;
 
     private void Start()
     {

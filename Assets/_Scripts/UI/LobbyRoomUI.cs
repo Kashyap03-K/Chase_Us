@@ -40,6 +40,8 @@ public class LobbyRoomUI : MonoBehaviour
     private TMP_Text titleText;
     private TMP_Text blurbText;
     private RectTransform codeRow;
+    private GameObject codeLabelGO;
+    private GameObject codeActionsGO;
     private readonly List<TMP_Text> codeCharTexts = new List<TMP_Text>();
     private Button startGameButton;
     private TMP_Text startGameLabel;
@@ -166,8 +168,10 @@ public class LobbyRoomUI : MonoBehaviour
     private void HideAndReturnToMenu()
     {
         Hide();
-        // Route the local player back to Mode Select so they don't stare at a dead scene.
-        if (modeSelectUI != null) modeSelectUI.Show();
+        // Route the local player back to Mode Select so they don't stare at a dead
+        // scene — unless the LAN screen is up handling its own join failure, in
+        // which case popping Mode Select would fight it for the screen.
+        if (modeSelectUI != null && !LanConnectUI.IsVisible) modeSelectUI.Show();
     }
 
     private void Show()
@@ -276,7 +280,8 @@ public class LobbyRoomUI : MonoBehaviour
         blurbText = CreateText(col.transform, "Blurb", "Share this code with your friends. They pick Play Online, enter the code, and drop in.", 13, UITheme.TextMuted);
         blurbText.alignment = TextAlignmentOptions.Left;
 
-        CreateText(col.transform, "CodeLabel", "ROOM CODE", 11, UITheme.TextDim, letterSpacing: 8);
+        TMP_Text codeLabel = CreateText(col.transform, "CodeLabel", "ROOM CODE", 11, UITheme.TextDim, letterSpacing: 8);
+        codeLabelGO = codeLabel.gameObject;
 
         BuildCodeRow(col.transform);
         BuildCodeActions(col.transform);
@@ -338,6 +343,7 @@ public class LobbyRoomUI : MonoBehaviour
     private void BuildCodeActions(Transform parent)
     {
         GameObject row = new GameObject("CodeActions", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+        codeActionsGO = row;
         row.transform.SetParent(parent, false);
         HorizontalLayoutGroup hlg = row.GetComponent<HorizontalLayoutGroup>();
         hlg.childAlignment = TextAnchor.MiddleLeft;
@@ -606,22 +612,33 @@ public class LobbyRoomUI : MonoBehaviour
 
     private void ApplyRoleView()
     {
+        // LAN sessions (KAS-23) have no join code — discovery finds the host —
+        // so the code section is Relay-only chrome.
+        bool lan = NetworkBootstrap.Instance != null &&
+                   NetworkBootstrap.Instance.CurrentMode == NetworkBootstrap.ConnectionMode.Lan;
+
         if (hostView)
         {
-            roleEyebrowText.text = "ROOM LIVE · RELAY ALLOCATION ACTIVE";
+            roleEyebrowText.text = lan ? "ROOM LIVE · LAN · SAME NETWORK" : "ROOM LIVE · RELAY ALLOCATION ACTIVE";
             titleText.text = "YOUR ROOM IS OPEN.";
-            blurbText.text = "Share this code with your friends. They pick Play Online, enter the code, and drop in.";
+            blurbText.text = lan
+                ? "Friends on your network pick Play LAN — your game shows up on their list automatically."
+                : "Share this code with your friends. They pick Play Online, enter the code, and drop in.";
             if (clientStatusLine != null) clientStatusLine.SetActive(false);
             if (startGameButton != null) startGameButton.gameObject.SetActive(true);
         }
         else
         {
-            roleEyebrowText.text = "CONNECTED TO HOST · RELAY";
+            roleEyebrowText.text = lan ? "CONNECTED TO HOST · LAN" : "CONNECTED TO HOST · RELAY";
             titleText.text = "YOU'RE IN.";
             blurbText.text = "Sit tight — the host will start the round when everyone's ready.";
             if (clientStatusLine != null) clientStatusLine.SetActive(true);
             if (startGameButton != null) startGameButton.gameObject.SetActive(false);
         }
+
+        if (codeLabelGO != null) codeLabelGO.SetActive(!lan);
+        if (codeRow != null) codeRow.gameObject.SetActive(!lan);
+        if (codeActionsGO != null) codeActionsGO.SetActive(!lan);
 
         UpdateRoomCode();
     }

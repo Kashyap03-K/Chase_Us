@@ -2371,6 +2371,7 @@ GameObject:
   - component: {fileID: 954808349}
   - component: {fileID: 954808350}
   - component: {fileID: 954808351}
+  - component: {fileID: 954808352}
   m_Layer: 0
   m_Name: _Bootstrap
   m_TagString: Untagged
@@ -2514,13 +2515,29 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b7cba03c63ceb9a4495e0128253fe973, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::HostJoinChoiceUI
   modeSelectUI: {fileID: 0}
   mapSelectUI: {fileID: 0}
   joinScreenUI: {fileID: 0}
   referenceResolution: {x: 1920, y: 1080}
   canvasSortingOrder: 100
+--- !u!114 &954808352
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 954808342}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ab3bee35e3216a42ca5a30c31fcef47, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::LanConnectUI
+  modeSelectUI: {fileID: 954808347}
+  referenceResolution: {x: 1920, y: 1080}
+  canvasSortingOrder: 100
+  joinTimeoutSeconds: 10
 --- !u!1001 &1021576749
 PrefabInstance:
   m_ObjectHideFlags: 0
