@@ -7,20 +7,31 @@ using Unity.Services.Relay.Models;
 using UnityEngine;
 
 /// <summary>
-/// Starts an NGO host or client over Unity Relay using a join code.
-/// Requires ServicesBootstrap to have completed anonymous sign-in first.
+/// Starts an NGO host or client over Unity Relay using a join code, or —
+/// KAS-23 (E2) — directly over the local network with UnityTransport and no
+/// Unity Services at all. Relay paths require ServicesBootstrap to have
+/// completed anonymous sign-in first; LAN paths deliberately do not.
 /// The host is the sole network authority; clients contribute nothing but a
-/// join code, so no client-supplied data is trusted here or later.
+/// join code / LAN address, so no client-supplied data is trusted here or later.
 /// </summary>
 public class NetworkBootstrap : MonoBehaviour
 {
+    /// <summary>How the current (or last-started) session connects.</summary>
+    public enum ConnectionMode { None, Relay, Lan }
+
     public static NetworkBootstrap Instance { get; private set; }
 
     // DTLS = encrypted UDP, the recommended Relay connection type for desktop/editor.
     private const string ConnectionType = "dtls";
 
-    /// <summary>Join code of the session we are hosting. Null when not hosting.</summary>
+    /// <summary>Default UDP port for direct LAN sessions.</summary>
+    public const ushort DefaultLanPort = 7777;
+
+    /// <summary>Join code of the session we are hosting. Null when not hosting (always null in LAN mode).</summary>
     public string JoinCode { get; private set; }
+
+    /// <summary>Mode of the session currently starting/running. UI reads this to label the lobby.</summary>
+    public ConnectionMode CurrentMode { get; private set; } = ConnectionMode.None;
 
     /// <summary>True while an async host/join attempt is in flight.</summary>
     public bool IsBusy { get; private set; }
@@ -64,12 +75,14 @@ public class NetworkBootstrap : MonoBehaviour
             SubscribeConnectionCallbacks();
 
             // StartHost() fires OnServerStarted synchronously — handlers (LobbyRoomUI etc.)
-            // read this property at that moment, so it MUST be populated before the call.
+            // read these properties at that moment, so they MUST be populated before the call.
             JoinCode = joinCode;
+            CurrentMode = ConnectionMode.Relay;
 
             if (!NetworkManager.Singleton.StartHost())
             {
                 JoinCode = null;
+                CurrentMode = ConnectionMode.None;
                 Debug.LogError("[NetworkBootstrap] NetworkManager.StartHost() returned false — host did not start.");
                 return null;
             }
@@ -121,9 +134,11 @@ public class NetworkBootstrap : MonoBehaviour
             transport.SetRelayServerData(joinAllocation.ToRelayServerData(ConnectionType));
 
             SubscribeConnectionCallbacks();
+            CurrentMode = ConnectionMode.Relay;
 
             if (!NetworkManager.Singleton.StartClient())
             {
+                CurrentMode = ConnectionMode.None;
                 Debug.LogError("[NetworkBootstrap] NetworkManager.StartClient() returned false — client did not start.");
                 return false;
             }
@@ -149,6 +164,101 @@ public class NetworkBootstrap : MonoBehaviour
         }
     }
 
+    // ---------- LAN (KAS-23 / E2) — direct UnityTransport, no Unity Services ----------
+
+    /// <summary>
+    /// Starts an NGO host directly on the local network: UnityTransport binds
+    /// 0.0.0.0:<paramref name="port"/> and LanDiscovery announces the session so
+    /// same-network clients can find it without typing an IP. No Relay, no UGS
+    /// sign-in required. Returns false on any failure (already logged) — the
+    /// most common one is the port already being in use by another host on
+    /// this machine.
+    /// </summary>
+    public bool StartLanHost(ushort port = DefaultLanPort)
+    {
+        if (!LanPreflightChecksPass(nameof(StartLanHost)))
+        {
+            return false;
+        }
+
+        UnityTransport transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
+        string localIp = LanDiscovery.GetLocalIPv4() ?? "127.0.0.1";
+        // Address is informational for a host; the listen address is what binds.
+        transport.SetConnectionData(localIp, port, "0.0.0.0");
+
+        SubscribeConnectionCallbacks();
+
+        // Populated before StartHost() — OnServerStarted handlers read these synchronously.
+        JoinCode = null;
+        CurrentMode = ConnectionMode.Lan;
+
+        if (!NetworkManager.Singleton.StartHost())
+        {
+            CurrentMode = ConnectionMode.None;
+            Debug.LogError($"[NetworkBootstrap] StartLanHost FAILED: NetworkManager.StartHost() returned false. " +
+                           $"Port {port} may already be in use (another host running on this machine?).");
+            return false;
+        }
+
+        Debug.Log($"[NetworkBootstrap] LAN HOST STARTED on {localIp}:{port}. Broadcasting for discovery.");
+
+        // Discovery failing is non-fatal — host still reachable by IP.
+        LanDiscovery.GetOrCreate().StartHostBroadcast(port, SystemInfo.deviceName);
+        NetworkManager.Singleton.OnServerStopped += HandleServerStoppedStopLanBroadcast;
+        return true;
+    }
+
+    /// <summary>
+    /// Joins a LAN host at <paramref name="address"/>:<paramref name="port"/>
+    /// (normally taken from a LanDiscovery result). Returns true when the NGO
+    /// client STARTED — the connection itself completes (or fails) async and is
+    /// reported via the NetworkManager connect/disconnect callbacks.
+    /// </summary>
+    public bool StartLanClient(string address, ushort port = DefaultLanPort)
+    {
+        if (!LanPreflightChecksPass(nameof(StartLanClient)))
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(address) || !System.Net.IPAddress.TryParse(address.Trim(), out _))
+        {
+            Debug.LogError($"[NetworkBootstrap] StartLanClient FAILED: '{address}' is not a valid IP address.");
+            return false;
+        }
+
+        UnityTransport transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
+        transport.SetConnectionData(address.Trim(), port);
+
+        SubscribeConnectionCallbacks();
+        JoinCode = null;
+        CurrentMode = ConnectionMode.Lan;
+
+        if (!NetworkManager.Singleton.StartClient())
+        {
+            CurrentMode = ConnectionMode.None;
+            Debug.LogError("[NetworkBootstrap] StartLanClient FAILED: NetworkManager.StartClient() returned false.");
+            return false;
+        }
+
+        Debug.Log($"[NetworkBootstrap] LAN CLIENT STARTED, connecting to {address.Trim()}:{port}. Waiting for connection callback...");
+        return true;
+    }
+
+    private void HandleServerStoppedStopLanBroadcast(bool wasHost)
+    {
+        if (LanDiscovery.Instance != null)
+        {
+            LanDiscovery.Instance.StopHostBroadcast();
+        }
+        if (NetworkManager.Singleton != null)
+        {
+            NetworkManager.Singleton.OnServerStopped -= HandleServerStoppedStopLanBroadcast;
+        }
+    }
+
+    // ---------- Preflight ----------
+
     private bool PreflightChecksPass(string caller)
     {
         if (IsBusy)
@@ -164,6 +274,23 @@ public class NetworkBootstrap : MonoBehaviour
             return false;
         }
 
+        return TransportPreflightChecksPass(caller);
+    }
+
+    /// <summary>Same checks as the Relay preflight minus the UGS sign-in — LAN must work fully offline.</summary>
+    private bool LanPreflightChecksPass(string caller)
+    {
+        if (IsBusy)
+        {
+            Debug.LogWarning($"[NetworkBootstrap] {caller} ignored: another host/join attempt is already in flight.");
+            return false;
+        }
+
+        return TransportPreflightChecksPass(caller);
+    }
+
+    private bool TransportPreflightChecksPass(string caller)
+    {
         if (NetworkManager.Singleton == null)
         {
             Debug.LogError($"[NetworkBootstrap] {caller} FAILED: no NetworkManager in the scene. " +

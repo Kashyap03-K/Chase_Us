@@ -12,19 +12,15 @@ using UnityEngine.UI;
 /// component onto any GameObject in the scene and it appears on Play.
 ///
 /// Routing:
-///   * Play Online → hides this screen, re-enables the temporary NetworkDebugUI
-///     (host + join-code panel). Swap-out point when Jaivik's E2/E3 (Host Lobby
-///     + Join screen) land — replace SetDebugUIVisible with the new screens.
-///   * Play LAN → shows a "not yet implemented" notice. NetworkBootstrap has no
-///     LAN transport path yet; when it does, wire this to that flow.
+///   * Play Online → hides this screen, shows the Host/Join choice screen.
+///   * Play LAN → hides this screen, shows the LAN host/discover screen (KAS-23).
 /// </summary>
 public class ModeSelectUI : MonoBehaviour
 {
     [Header("Wiring (auto-found if left null)")]
     [SerializeField] private HostJoinChoiceUI hostJoinChoiceUI;
     [SerializeField] private MapSelectUI mapSelectUI;
-    [SerializeField, Tooltip("Temporary. Replaced by Jaivik's E2/E3 screens.")]
-    private NetworkDebugUI networkDebugUI;
+    [SerializeField] private LanConnectUI lanConnectUI;
 
     [Header("Layout")]
     [SerializeField] private Vector2 referenceResolution = new Vector2(1920, 1080);
@@ -45,16 +41,16 @@ public class ModeSelectUI : MonoBehaviour
         {
             mapSelectUI = FindFirstObjectByType<MapSelectUI>();
         }
-        if (networkDebugUI == null)
+        if (lanConnectUI == null)
         {
-            networkDebugUI = FindFirstObjectByType<NetworkDebugUI>();
+            lanConnectUI = FindAnyObjectByType<LanConnectUI>();
         }
     }
 
     private void Start()
     {
         BuildCanvas();
-        SetDebugUIVisible(false);
+        Show();
     }
 
     private void Update()
@@ -276,8 +272,16 @@ public class ModeSelectUI : MonoBehaviour
 
     private void OnLanClicked()
     {
-        Debug.LogWarning("[ModeSelectUI] Play LAN clicked — LAN flow is not yet implemented in NetworkBootstrap.");
-        ShowNotice("LAN mode coming soon — use Play Online for now.");
+        if (lanConnectUI != null)
+        {
+            Debug.Log("[ModeSelectUI] Play LAN → showing LAN host/discover screen.");
+            Hide();
+            lanConnectUI.Show();
+            return;
+        }
+
+        Debug.LogWarning("[ModeSelectUI] Play LAN clicked but no LanConnectUI found in the scene.");
+        ShowNotice("LAN mode unavailable — LanConnectUI missing from scene.");
     }
 
     private void OnOnlineClicked()
@@ -307,10 +311,7 @@ public class ModeSelectUI : MonoBehaviour
             return;
         }
 
-        // Last resort: legacy IMGUI panel.
-        Debug.LogWarning("[ModeSelectUI] Play Online: neither HostJoinChoiceUI nor MapSelectUI found — falling back to legacy NetworkDebugUI path.");
-        Hide();
-        SetDebugUIVisible(true);
+        Debug.LogError("[ModeSelectUI] Play Online: neither HostJoinChoiceUI nor MapSelectUI found in the scene — cannot route anywhere.");
     }
 
     private void ShowNotice(string message)
@@ -321,12 +322,16 @@ public class ModeSelectUI : MonoBehaviour
         noticeExpireAt = Time.unscaledTime + NoticeDurationSeconds;
     }
 
+    /// <summary>True while this screen is shown — lets OrbitCamera yield the cursor.</summary>
+    public static bool IsVisible { get; private set; }
+
     public void Show()
     {
         if (canvasGroup == null) return;
         canvasGroup.alpha = 1f;
         canvasGroup.blocksRaycasts = true;
         canvasGroup.interactable = true;
+        IsVisible = true;
     }
 
     public void Hide()
@@ -335,13 +340,6 @@ public class ModeSelectUI : MonoBehaviour
         canvasGroup.alpha = 0f;
         canvasGroup.blocksRaycasts = false;
         canvasGroup.interactable = false;
-    }
-
-    private void SetDebugUIVisible(bool visible)
-    {
-        if (networkDebugUI != null)
-        {
-            networkDebugUI.enabled = visible;
-        }
+        IsVisible = false;
     }
 }

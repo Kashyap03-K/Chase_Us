@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using TMPro;
+using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
@@ -26,7 +27,6 @@ public class LobbyRoomUI : MonoBehaviour
 {
     [Header("Wiring (auto-found if left null)")]
     [SerializeField] private ModeSelectUI modeSelectUI;
-    [SerializeField] private NetworkDebugUI networkDebugUI;
 
     [Header("Layout")]
     [SerializeField] private Vector2 referenceResolution = new Vector2(1920, 1080);
@@ -41,12 +41,19 @@ public class LobbyRoomUI : MonoBehaviour
     private TMP_Text titleText;
     private TMP_Text blurbText;
     private RectTransform codeRow;
+    private GameObject codeLabelGO;
+    private GameObject codeActionsGO;
     private readonly List<TMP_Text> codeCharTexts = new List<TMP_Text>();
     private Button startGameButton;
     private TMP_Text startGameLabel;
     private GameObject clientStatusLine;
     private bool built;
     private bool hostView;
+
+    // Minimal "drop into the map" start signal — hides the lobby on every peer so
+    // the already-spawned players (KAS-27/28) become visible and playable. The
+    // real round state machine (countdown, role assignment) remains KAS-10.
+    private const string StartGameMessageName = "ChaseUs.StartGame";
     private static readonly Color32[] AvatarPalette =
     {
         new Color32(0xFF, 0x3D, 0x7A, 0xFF), // pink
@@ -62,10 +69,6 @@ public class LobbyRoomUI : MonoBehaviour
         if (modeSelectUI == null)
         {
             modeSelectUI = FindFirstObjectByType<ModeSelectUI>();
-        }
-        if (networkDebugUI == null)
-        {
-            networkDebugUI = FindFirstObjectByType<NetworkDebugUI>();
         }
     }
 
@@ -120,6 +123,7 @@ public class LobbyRoomUI : MonoBehaviour
 
     private void HandleServerStarted()
     {
+        RegisterStartGameMessage();
         ShowForCurrentRole();
         RebuildPlayerList();
     }
@@ -130,6 +134,7 @@ public class LobbyRoomUI : MonoBehaviour
         // any subsequent connect (someone else joined) to keep the list live.
         if (NetworkManager.Singleton != null && clientId == NetworkManager.Singleton.LocalClientId)
         {
+            RegisterStartGameMessage();
             ShowForCurrentRole();
         }
         RebuildPlayerList();
@@ -148,7 +153,42 @@ public class LobbyRoomUI : MonoBehaviour
 
     private void HandleClientStopped(bool wasHost)
     {
+        UnregisterStartGameMessage();
         HideAndReturnToMenu();
+    }
+
+    // ---------- Start-game signal (minimal, pre-KAS-10) ----------
+
+    private void RegisterStartGameMessage()
+    {
+        NetworkManager nm = NetworkManager.Singleton;
+        if (nm == null || nm.CustomMessagingManager == null) return;
+        nm.CustomMessagingManager.RegisterNamedMessageHandler(StartGameMessageName, OnStartGameMessage);
+    }
+
+    private void UnregisterStartGameMessage()
+    {
+        NetworkManager nm = NetworkManager.Singleton;
+        if (nm == null || nm.CustomMessagingManager == null) return;
+        nm.CustomMessagingManager.UnregisterNamedMessageHandler(StartGameMessageName);
+    }
+
+    private void OnStartGameMessage(ulong senderClientId, FastBufferReader payload)
+    {
+        // Only the server may start the game — ignore a spoofing client.
+        if (senderClientId != NetworkManager.ServerClientId) return;
+        HideForGameplay();
+    }
+
+    /// <summary>
+    /// Drops this peer out of the lobby and into the map: the networked players
+    /// spawned on connect (KAS-27/28) are already standing on their spawn points
+    /// behind this screen. Clicking into the game re-locks the cursor (OrbitCamera).
+    /// </summary>
+    private void HideForGameplay()
+    {
+        Debug.Log("[LobbyRoomUI] Game started — hiding lobby, dropping into the map.");
+        Hide();
     }
 
     // ---------- Show/hide orchestration ----------
@@ -163,8 +203,6 @@ public class LobbyRoomUI : MonoBehaviour
         ApplyRoleView();
         Show();
 
-        // Debug panel yields once we take over.
-        if (networkDebugUI != null) networkDebugUI.enabled = false;
         // Ensure entry menus are down too — Confirm on Map Select left Mode/Map hidden already,
         // but be defensive if state got out of sync.
         if (modeSelectUI != null) modeSelectUI.Hide();
@@ -173,9 +211,10 @@ public class LobbyRoomUI : MonoBehaviour
     private void HideAndReturnToMenu()
     {
         Hide();
-        // Route the local player back to Mode Select so they don't stare at a dead scene.
-        if (modeSelectUI != null) modeSelectUI.Show();
-        if (networkDebugUI != null) networkDebugUI.enabled = false;
+        // Route the local player back to Mode Select so they don't stare at a dead
+        // scene — unless the LAN screen is up handling its own join failure, in
+        // which case popping Mode Select would fight it for the screen.
+        if (modeSelectUI != null && !LanConnectUI.IsVisible) modeSelectUI.Show();
     }
 
     private void Show()
@@ -284,7 +323,8 @@ public class LobbyRoomUI : MonoBehaviour
         blurbText = CreateText(col.transform, "Blurb", "Share this code with your friends. They pick Play Online, enter the code, and drop in.", 13, UITheme.TextMuted);
         blurbText.alignment = TextAlignmentOptions.Left;
 
-        CreateText(col.transform, "CodeLabel", "ROOM CODE", 11, UITheme.TextDim, letterSpacing: 8);
+        TMP_Text codeLabel = CreateText(col.transform, "CodeLabel", "ROOM CODE", 11, UITheme.TextDim, letterSpacing: 8);
+        codeLabelGO = codeLabel.gameObject;
 
         BuildCodeRow(col.transform);
         BuildCodeActions(col.transform);
@@ -346,6 +386,7 @@ public class LobbyRoomUI : MonoBehaviour
     private void BuildCodeActions(Transform parent)
     {
         GameObject row = new GameObject("CodeActions", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+        codeActionsGO = row;
         row.transform.SetParent(parent, false);
         HorizontalLayoutGroup hlg = row.GetComponent<HorizontalLayoutGroup>();
         hlg.childAlignment = TextAnchor.MiddleLeft;
@@ -614,22 +655,33 @@ public class LobbyRoomUI : MonoBehaviour
 
     private void ApplyRoleView()
     {
+        // LAN sessions (KAS-23) have no join code — discovery finds the host —
+        // so the code section is Relay-only chrome.
+        bool lan = NetworkBootstrap.Instance != null &&
+                   NetworkBootstrap.Instance.CurrentMode == NetworkBootstrap.ConnectionMode.Lan;
+
         if (hostView)
         {
-            roleEyebrowText.text = "ROOM LIVE · RELAY ALLOCATION ACTIVE";
+            roleEyebrowText.text = lan ? "ROOM LIVE · LAN · SAME NETWORK" : "ROOM LIVE · RELAY ALLOCATION ACTIVE";
             titleText.text = "YOUR ROOM IS OPEN.";
-            blurbText.text = "Share this code with your friends. They pick Play Online, enter the code, and drop in.";
+            blurbText.text = lan
+                ? "Friends on your network pick Play LAN — your game shows up on their list automatically."
+                : "Share this code with your friends. They pick Play Online, enter the code, and drop in.";
             if (clientStatusLine != null) clientStatusLine.SetActive(false);
             if (startGameButton != null) startGameButton.gameObject.SetActive(true);
         }
         else
         {
-            roleEyebrowText.text = "CONNECTED TO HOST · RELAY";
+            roleEyebrowText.text = lan ? "CONNECTED TO HOST · LAN" : "CONNECTED TO HOST · RELAY";
             titleText.text = "YOU'RE IN.";
             blurbText.text = "Sit tight — the host will start the round when everyone's ready.";
             if (clientStatusLine != null) clientStatusLine.SetActive(true);
             if (startGameButton != null) startGameButton.gameObject.SetActive(false);
         }
+
+        if (codeLabelGO != null) codeLabelGO.SetActive(!lan);
+        if (codeRow != null) codeRow.gameObject.SetActive(!lan);
+        if (codeActionsGO != null) codeActionsGO.SetActive(!lan);
 
         UpdateRoomCode();
     }
@@ -889,9 +941,18 @@ public class LobbyRoomUI : MonoBehaviour
             Debug.LogWarning($"[LobbyRoomUI] Start Game requires ≥ 2 players; only {connected} connected.");
             return;
         }
-        // TODO(Sprint 3 · KAS-10): trigger round state machine here — advance to WaitingForPlayers
-        // (in-map countdown), then RoleAssignment. For now, just log so we can see the wire is live.
-        Debug.Log($"[LobbyRoomUI] START GAME · {connected} players. Round state machine wiring pending KAS-10.");
+
+        // Minimal start (pre-KAS-10): tell every peer to drop out of the lobby and
+        // into the map, where the networked players already spawned on connect.
+        // TODO(Sprint 3 · KAS-10): replace with the round state machine — advance to
+        // WaitingForPlayers (in-map countdown), then RoleAssignment.
+        Debug.Log($"[LobbyRoomUI] START GAME · {connected} players. Broadcasting lobby dismissal.");
+        using (FastBufferWriter writer = new FastBufferWriter(1, Allocator.Temp))
+        {
+            nm.CustomMessagingManager.SendNamedMessageToAll(StartGameMessageName, writer);
+        }
+        // Named messages don't loop back to the host — dismiss locally too.
+        HideForGameplay();
     }
 
     // ---------- Shared helpers ----------

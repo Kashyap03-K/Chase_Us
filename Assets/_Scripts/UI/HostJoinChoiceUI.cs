@@ -38,12 +38,16 @@ public class HostJoinChoiceUI : MonoBehaviour
         Hide();
     }
 
+    /// <summary>True while this screen is shown — lets OrbitCamera yield the cursor.</summary>
+    public static bool IsVisible { get; private set; }
+
     public void Show()
     {
         if (canvasGroup == null) return;
         canvasGroup.alpha = 1f;
         canvasGroup.blocksRaycasts = true;
         canvasGroup.interactable = true;
+        IsVisible = true;
     }
 
     public void Hide()
@@ -52,6 +56,7 @@ public class HostJoinChoiceUI : MonoBehaviour
         canvasGroup.alpha = 0f;
         canvasGroup.blocksRaycasts = false;
         canvasGroup.interactable = false;
+        IsVisible = false;
     }
 
     // ---------- Canvas construction ----------

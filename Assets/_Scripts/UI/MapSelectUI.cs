@@ -13,8 +13,7 @@ using UnityEngine.UI;
 /// tiles are non-interactable; the first non-locked map is preselected.
 ///
 /// Routing:
-///   * Confirm → hides itself, re-enables the temporary NetworkDebugUI
-///     as the next step (swap-out point once Jaivik's E2 Host Lobby lands).
+///   * Confirm → hides itself and starts hosting via NetworkBootstrap.
 ///     The chosen map ID is stored in SelectedMapId + broadcast via
 ///     the Confirmed event so downstream code can act on it.
 ///   * Back    → hides itself, calls Show() on ModeSelectUI so the user
@@ -37,8 +36,6 @@ public class MapSelectUI : MonoBehaviour
     [Header("Wiring (auto-found if left null)")]
     [SerializeField] private HostJoinChoiceUI hostJoinChoiceUI;
     [SerializeField] private ModeSelectUI modeSelectUI;
-    [SerializeField, Tooltip("Temporary. Replaced by Jaivik's E2 (Host Lobby) when it lands.")]
-    private NetworkDebugUI networkDebugUI;
 
     [Header("Maps")]
     [SerializeField]
@@ -98,10 +95,6 @@ public class MapSelectUI : MonoBehaviour
         {
             modeSelectUI = FindFirstObjectByType<ModeSelectUI>();
         }
-        if (networkDebugUI == null)
-        {
-            networkDebugUI = FindFirstObjectByType<NetworkDebugUI>();
-        }
 
         foreach (MapDefinition m in maps)
         {
@@ -120,12 +113,16 @@ public class MapSelectUI : MonoBehaviour
         Hide();
     }
 
+    /// <summary>True while this screen is shown — lets OrbitCamera yield the cursor.</summary>
+    public static bool IsVisible { get; private set; }
+
     public void Show()
     {
         if (canvasGroup == null) return;
         canvasGroup.alpha = 1f;
         canvasGroup.blocksRaycasts = true;
         canvasGroup.interactable = true;
+        IsVisible = true;
     }
 
     public void Hide()
@@ -134,6 +131,7 @@ public class MapSelectUI : MonoBehaviour
         canvasGroup.alpha = 0f;
         canvasGroup.blocksRaycasts = false;
         canvasGroup.interactable = false;
+        IsVisible = false;
     }
 
     // ---------- Canvas construction ----------
@@ -531,20 +529,19 @@ public class MapSelectUI : MonoBehaviour
         Confirmed?.Invoke(SelectedMapId);
 
         // Host directly. LobbyRoomUI observes OnServerStarted and takes over the screen.
-        // Fallback to the legacy NetworkDebugUI panel only if NetworkBootstrap is missing.
-        if (NetworkBootstrap.Instance != null)
+        if (NetworkBootstrap.Instance == null)
         {
-            string code = await NetworkBootstrap.Instance.StartHostAsync(maxConnections: 3);
-            if (code == null)
-            {
-                Debug.LogError("[MapSelectUI] StartHostAsync returned null — host did not start. Returning to Map Select.");
-                Show();
-            }
+            Debug.LogError("[MapSelectUI] NetworkBootstrap.Instance is null — cannot host. Returning to Map Select.");
+            Show();
             return;
         }
 
-        Debug.LogWarning("[MapSelectUI] NetworkBootstrap.Instance is null — using legacy NetworkDebugUI as fallback.");
-        if (networkDebugUI != null) networkDebugUI.enabled = true;
+        string code = await NetworkBootstrap.Instance.StartHostAsync(maxConnections: 3);
+        if (code == null)
+        {
+            Debug.LogError("[MapSelectUI] StartHostAsync returned null — host did not start. Returning to Map Select.");
+            Show();
+        }
     }
 
     // ---------- Shared helpers ----------
