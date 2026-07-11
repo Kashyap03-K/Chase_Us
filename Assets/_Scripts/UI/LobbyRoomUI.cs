@@ -88,7 +88,15 @@ public class LobbyRoomUI : MonoBehaviour
     private void OnDestroy()
     {
         UnsubscribeFromNetworkEvents();
+        IsVisible = false;
     }
+
+    /// <summary>
+    /// True while the lobby screen is visible/interactable. OrbitCamera leaves
+    /// the cursor unlocked while this is set, so the lobby buttons stay
+    /// clickable after the host/client session has started.
+    /// </summary>
+    public static bool IsVisible { get; private set; }
 
     // ---------- NGO event wiring ----------
 
@@ -176,6 +184,7 @@ public class LobbyRoomUI : MonoBehaviour
         canvasGroup.alpha = 1f;
         canvasGroup.blocksRaycasts = true;
         canvasGroup.interactable = true;
+        IsVisible = true;
     }
 
     private void Hide()
@@ -184,6 +193,7 @@ public class LobbyRoomUI : MonoBehaviour
         canvasGroup.alpha = 0f;
         canvasGroup.blocksRaycasts = false;
         canvasGroup.interactable = false;
+        IsVisible = false;
     }
 
     // ---------- Canvas construction ----------
