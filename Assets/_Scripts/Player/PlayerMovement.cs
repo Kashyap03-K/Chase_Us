@@ -51,6 +51,10 @@ public class PlayerMovement : NetworkBehaviour
     [SerializeField] private Animator animator;
     [SerializeField] private string speedParameterName = "Speed";
 
+    [Header("Chain (F3)")]
+    [Tooltip("Force a CAUGHT player's own input applies to their chained Rigidbody — enough to tug and strain ('holding hands'), not to drive freely.")]
+    [SerializeField] private float caughtMoveForce = 15f;
+
     /// <summary>One frame of player intent, sent owner → server.</summary>
     public struct MoveInput : INetworkSerializable
     {
@@ -70,8 +74,11 @@ public class PlayerMovement : NetworkBehaviour
 
     private CharacterController controller;
     private NetworkObject cachedNetworkObject;
+    private ChainLink chainLink;       // optional — present on the networked player prefab (F3)
     private Vector3 velocity;          // vertical velocity state — server-only when networked
     private MoveInput pendingInput;    // latest owner intent — server-only when networked
+
+    private bool IsCaughtInChain => chainLink != null && chainLink.IsCaught.Value;
 
     // Server-written; every instance drives its Animator from this when networked.
     private readonly NetworkVariable<float> netAnimSpeed = new NetworkVariable<float>();
@@ -82,6 +89,7 @@ public class PlayerMovement : NetworkBehaviour
     {
         controller = GetComponent<CharacterController>();
         cachedNetworkObject = GetComponentInParent<NetworkObject>();
+        chainLink = GetComponent<ChainLink>();
 
         if (animator == null)
         {
@@ -176,7 +184,20 @@ public class PlayerMovement : NetworkBehaviour
 
         if (IsServer)
         {
-            netAnimSpeed.Value = ApplyMovement(pendingInput, Time.deltaTime);
+            if (IsCaughtInChain)
+            {
+                // F3: chained players are Rigidbody+joint-driven — forces are applied
+                // in FixedUpdate. Here we only surface the anim blend from intent.
+                Vector2 chainMove = Vector2.ClampMagnitude(pendingInput.Move, 1f);
+                netAnimSpeed.Value = chainMove.sqrMagnitude > 0.001f ? 1f : 0f;
+            }
+            else
+            {
+                // F1 path, unchanged — except the hunter's chain-length speed penalty
+                // factor (1 for everyone who isn't the chain head).
+                float speedMultiplier = chainLink != null ? chainLink.SpeedMultiplier.Value : 1f;
+                netAnimSpeed.Value = ApplyMovement(pendingInput, Time.deltaTime, speedMultiplier);
+            }
             pendingInput.JumpPressed = false; // jump is an edge — never re-apply it
         }
 
@@ -184,6 +205,31 @@ public class PlayerMovement : NetworkBehaviour
         {
             animator.SetFloat(speedParameterName, netAnimSpeed.Value);
         }
+    }
+
+    private void FixedUpdate()
+    {
+        // F3: a caught player's own input becomes force on their chained body —
+        // it tugs against the joint so the chain reads as "holding hands", not
+        // luggage. Server-only, like all movement application.
+        if (!IsNetworkedAndSpawned || !IsServer || !IsCaughtInChain) return;
+
+        Rigidbody body = chainLink.Body;
+        if (body == null || body.isKinematic) return;
+
+        Vector2 clamped = Vector2.ClampMagnitude(pendingInput.Move, 1f);
+        Vector3 rawInput = new Vector3(clamped.x, 0f, clamped.y);
+        if (rawInput.sqrMagnitude <= 0.001f) return;
+
+        // Same camera-relative interpretation as the CC path.
+        Vector3 moveDirection = Quaternion.Euler(0f, pendingInput.CameraYaw, 0f) * rawInput;
+
+        body.AddForce(moveDirection * caughtMoveForce, ForceMode.Force);
+
+        // Face where they're pulling. MoveRotation lets the joint's angular
+        // limits push back instead of being overwritten.
+        Quaternion targetRotation = Quaternion.LookRotation(moveDirection, Vector3.up);
+        body.MoveRotation(Quaternion.Slerp(body.rotation, targetRotation, rotationSpeed * Time.fixedDeltaTime));
     }
 
     // ---------- Input stage (local machine only) ----------
@@ -216,8 +262,9 @@ public class PlayerMovement : NetworkBehaviour
     /// <summary>
     /// Applies one frame of movement to the CharacterController and returns the
     /// animator blend speed (0 idle / 1 walk / 2 run) for the caller to route.
+    /// <paramref name="speedMultiplier"/> is the F3 hunter chain penalty (1 = none).
     /// </summary>
-    private float ApplyMovement(MoveInput input, float deltaTime)
+    private float ApplyMovement(MoveInput input, float deltaTime, float speedMultiplier = 1f)
     {
         if (controller == null || !controller.enabled)
         {
@@ -236,8 +283,8 @@ public class PlayerMovement : NetworkBehaviour
             moveDirection = cameraYaw * rawInput;
         }
 
-        // --- Sprint ---
-        float currentMoveSpeed = input.Sprint ? runSpeed : walkSpeed;
+        // --- Sprint (scaled by the chain penalty when this player heads a chain) ---
+        float currentMoveSpeed = (input.Sprint ? runSpeed : walkSpeed) * speedMultiplier;
         Vector3 move = moveDirection * currentMoveSpeed;
 
         // --- Face movement direction ---

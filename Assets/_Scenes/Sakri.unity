@@ -2373,6 +2373,7 @@ GameObject:
   - component: {fileID: 954808351}
   - component: {fileID: 954808352}
   - component: {fileID: 954808353}
+  - component: {fileID: 954808354}
   m_Layer: 0
   m_Name: _Bootstrap
   m_TagString: Untagged
@@ -2558,6 +2559,31 @@ MonoBehaviour:
   - {x: -4, y: 0.2, z: -3}
   offlinePlayer: {fileID: 1576287644}
   orbitCamera: {fileID: 1902783227}
+--- !u!114 &954808354
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 954808342}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0b363fdb3ced886f0baf8812657b3c0b, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ChainManager
+  catchRadius: 1.2
+  linearLimit: 1.5
+  positionSpring: 200
+  positionDamper: 20
+  angularSwingLimit: 45
+  angularTwistLimit: 30
+  jointAnchor: {x: 0, y: 1, z: 0}
+  jointEnableCollision: 1
+  linkMass: 1
+  linkLinearDrag: 1
+  linkAngularDrag: 5
+  linkPenalty: 0.05
+  minSpeedFraction: 0.4
 --- !u!1001 &1021576749
 PrefabInstance:
   m_ObjectHideFlags: 0
