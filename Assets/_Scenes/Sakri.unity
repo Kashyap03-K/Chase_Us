@@ -2372,6 +2372,7 @@ GameObject:
   - component: {fileID: 954808350}
   - component: {fileID: 954808351}
   - component: {fileID: 954808352}
+  - component: {fileID: 954808353}
   m_Layer: 0
   m_Name: _Bootstrap
   m_TagString: Untagged
@@ -2538,6 +2539,25 @@ MonoBehaviour:
   referenceResolution: {x: 1920, y: 1080}
   canvasSortingOrder: 100
   joinTimeoutSeconds: 10
+--- !u!114 &954808353
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 954808342}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1229d8b50f076be4f92eca70b2d3906b, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerSpawnManager
+  spawnPoints:
+  - {x: -8, y: 0.2, z: -7}
+  - {x: -4, y: 0.2, z: -7}
+  - {x: -8, y: 0.2, z: -3}
+  - {x: -4, y: 0.2, z: -3}
+  offlinePlayer: {fileID: 1576287644}
+  orbitCamera: {fileID: 1902783227}
 --- !u!1001 &1021576749
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -3483,7 +3503,7 @@ MonoBehaviour:
   NetworkConfig:
     ProtocolVersion: 0
     NetworkTransport: {fileID: 1457161417}
-    PlayerPrefab: {fileID: 0}
+    PlayerPrefab: {fileID: 4711000001, guid: 8fbc135343f7268d9df5fd7561fb3ddb, type: 3}
     Prefabs:
       NetworkPrefabsLists:
       - {fileID: 11400000, guid: afe0f861020dd3c498db8cc5a411e8b2, type: 2}

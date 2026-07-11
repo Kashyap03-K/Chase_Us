@@ -37,6 +37,15 @@ public class OrbitCamera : MonoBehaviour
     // Public read-only accessor so PlayerMovement can align to camera's yaw
     public float Yaw => yaw;
 
+    /// <summary>
+    /// Re-points the camera at a new target — the locally-owned player when a
+    /// network session spawns one (KAS-28), the offline player when it ends.
+    /// </summary>
+    public void SetTarget(Transform newTarget)
+    {
+        target = newTarget;
+    }
+
     // Menus own the cursor: pre-session screens (Mode Select, Host/Join Choice,
     // Map Select, Join, LAN) via their own IsVisible flags, the post-session
     // lobby via LobbyRoomUI.

@@ -104,6 +104,36 @@ public class PlayerMovement : NetworkBehaviour
         {
             controller.enabled = false;
         }
+
+        // KAS-28 owner guard: ONLY the owning client captures the scene camera rig.
+        // Remote players' instances leave the camera alone, so each client sees the
+        // world exclusively through their own player.
+        if (IsOwner)
+        {
+            OrbitCamera sceneCamera = FindSceneOrbitCamera();
+            if (sceneCamera != null)
+            {
+                orbitCamera = sceneCamera;
+                sceneCamera.SetTarget(transform);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The OrbitCamera that actually sits on a Camera — the scene also has an
+    /// inert OrbitCamera component on the offline player object, which must
+    /// never be picked for the live rig.
+    /// </summary>
+    private static OrbitCamera FindSceneOrbitCamera()
+    {
+        foreach (OrbitCamera candidate in FindObjectsByType<OrbitCamera>(FindObjectsInactive.Exclude))
+        {
+            if (candidate.GetComponent<Camera>() != null)
+            {
+                return candidate;
+            }
+        }
+        return null;
     }
 
     public override void OnNetworkDespawn()
