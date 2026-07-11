@@ -2572,7 +2572,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::ChainManager
   catchRadius: 1.2
-  linearLimit: 1.5
+  restDistanceOverride: 0
   positionSpring: 200
   positionDamper: 20
   angularSwingLimit: 45

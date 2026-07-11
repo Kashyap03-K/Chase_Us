@@ -15,8 +15,9 @@ using UnityEngine;
 /// Architecture switch on catch: the runner's CharacterController turns off,
 /// its (until now kinematic) Rigidbody turns dynamic, its CapsuleCollider
 /// turns on, and a ConfigurableJoint ties it to the previous tail. The Hunter
-/// keeps its F1/F2 CharacterController pipeline untouched — its kinematic
-/// Rigidbody merely serves as a moving joint anchor for the first caught link.
+/// is converted the same way at registration (Change 1) — everyone in the
+/// chain is the same physics family, so rope tension is bidirectional: caught
+/// runners pulling away genuinely slow or stall the Hunter (tug-of-war).
 ///
 /// Turning is fully emergent from the joint spring/damper physics — there is
 /// deliberately no scripted follow/turn logic here.
@@ -37,8 +38,8 @@ public class ChainManager : MonoBehaviour
     private float catchRadius = 1.2f;
 
     [Header("Joint (design-doc placeholders — tune in playtests)")]
-    [SerializeField, Tooltip("Max stretch before the link goes taut (m).")]
-    private float linearLimit = 1.5f;
+    [SerializeField, Tooltip("Taut distance between chain members (m). 0 = auto: derive character width from the capsule collider (radius × 2) — 'holding hands' close, per the design correction that 1.5m read as floating apart.")]
+    private float restDistanceOverride = 0f;
     [SerializeField] private float positionSpring = 200f;
     [SerializeField] private float positionDamper = 20f;
     [SerializeField, Tooltip("± swing around the two perpendicular axes (deg).")]
@@ -65,6 +66,7 @@ public class ChainManager : MonoBehaviour
     private readonly List<ChainLink> chain = new List<ChainLink>();
     private readonly List<ChainLink> uncaughtRunners = new List<ChainLink>();
     private bool subscribed;
+    private float resolvedRestDistance = -1f;
 
     private void Start()
     {
@@ -120,7 +122,11 @@ public class ChainManager : MonoBehaviour
         if (clientId == NetworkManager.ServerClientId)
         {
             chain.Insert(0, link);
-            Debug.Log("[ChainManager] Hunter (chain head) registered: host player (pre-KAS-10 placeholder role).");
+            // Change 1: the Hunter is Rigidbody-driven from the start — same physics
+            // family as chain members, so joint tension genuinely pulls back on it
+            // (bidirectional tug-of-war) instead of being ignored by a kinematic CC.
+            ConvertToPhysicsBody(link);
+            Debug.Log("[ChainManager] Hunter (chain head) registered as Rigidbody-driven: host player (pre-KAS-10 placeholder role).");
         }
         else
         {
@@ -216,20 +222,7 @@ public class ChainManager : MonoBehaviour
         chain.Add(runner);
 
         // --- Architecture switch: CharacterController-driven → Rigidbody+joint-driven ---
-        CharacterController cc = runner.GetComponent<CharacterController>();
-        if (cc != null) cc.enabled = false;
-
-        if (runner.ChainCollider != null) runner.ChainCollider.enabled = true;
-
-        Rigidbody body = runner.Body;
-        if (body != null)
-        {
-            body.isKinematic = false;
-            body.mass = linkMass;
-            body.linearDamping = linkLinearDrag;
-            body.angularDamping = linkAngularDrag;
-        }
-
+        ConvertToPhysicsBody(runner);
         runner.JointToAhead = CreateJoint(runner, tail);
 
         // --- Replicate: caught flag + who they hang off (drives the rope visual) ---
@@ -243,10 +236,58 @@ public class ChainManager : MonoBehaviour
                   $"Uncaught runners left: {uncaughtRunners.Count}");
     }
 
+    /// <summary>
+    /// Switches a player from CharacterController-driven to Rigidbody-driven.
+    /// Server only. Used for the Hunter on registration (Change 1) and for
+    /// runners on catch. Change 2: the character is explicitly uprighted (yaw
+    /// preserved, pitch/roll zeroed) BEFORE the body goes dynamic, and X/Z
+    /// rotation is frozen so joint torque / residual spin can't topple it.
+    /// </summary>
+    private void ConvertToPhysicsBody(ChainLink link)
+    {
+        CharacterController cc = link.GetComponent<CharacterController>();
+        if (cc != null) cc.enabled = false;
+
+        if (link.ChainCollider != null) link.ChainCollider.enabled = true;
+
+        // Upright with only yaw kept — whatever mid-turn/mid-slerp orientation the
+        // character had at this instant must not be inherited by the physics body.
+        link.transform.rotation = Quaternion.Euler(0f, link.transform.eulerAngles.y, 0f);
+
+        Rigidbody body = link.Body;
+        if (body == null) return;
+
+        body.isKinematic = false;
+        body.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+        body.linearVelocity = Vector3.zero;
+        body.angularVelocity = Vector3.zero;
+        body.mass = linkMass;
+        body.linearDamping = linkLinearDrag;
+        body.angularDamping = linkAngularDrag;
+    }
+
+    /// <summary>
+    /// Taut distance between chain members: the override if set, otherwise the
+    /// character's width read from its capsule collider (radius × 2) — logged
+    /// once so playtests know the actual number in use.
+    /// </summary>
+    private float GetRestDistance(ChainLink sample)
+    {
+        if (restDistanceOverride > 0f) return restDistanceOverride;
+        if (resolvedRestDistance <= 0f)
+        {
+            resolvedRestDistance = sample != null && sample.ChainCollider != null
+                ? sample.ChainCollider.radius * 2f
+                : 1f;
+            Debug.Log($"[ChainManager] Chain rest distance auto-derived from capsule width: {resolvedRestDistance:0.##} m.");
+        }
+        return resolvedRestDistance;
+    }
+
     private ConfigurableJoint CreateJoint(ChainLink from, ChainLink to)
     {
         ConfigurableJoint joint = from.gameObject.AddComponent<ConfigurableJoint>();
-        joint.connectedBody = to.Body; // hunter's body is kinematic: a moving anchor, unaffected by chain forces
+        joint.connectedBody = to.Body;
         joint.autoConfigureConnectedAnchor = false;
         joint.anchor = jointAnchor;
         joint.connectedAnchor = jointAnchor;
@@ -255,7 +296,7 @@ public class ChainManager : MonoBehaviour
         joint.xMotion = ConfigurableJointMotion.Limited;
         joint.yMotion = ConfigurableJointMotion.Limited;
         joint.zMotion = ConfigurableJointMotion.Limited;
-        joint.linearLimit = new SoftJointLimit { limit = linearLimit };
+        joint.linearLimit = new SoftJointLimit { limit = GetRestDistance(from) };
         joint.linearLimitSpring = new SoftJointLimitSpring { spring = positionSpring, damper = positionDamper };
 
         joint.angularXMotion = ConfigurableJointMotion.Limited; // twist axis

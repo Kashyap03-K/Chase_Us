@@ -55,6 +55,18 @@ public class PlayerMovement : NetworkBehaviour
     [Tooltip("Force a CAUGHT player's own input applies to their chained Rigidbody — enough to tug and strain ('holding hands'), not to drive freely.")]
     [SerializeField] private float caughtMoveForce = 15f;
 
+    [Header("Rigidbody locomotion (F3 Change 1 — physics-driven Hunter)")]
+    [Tooltip("Acceleration toward desired velocity for a Rigidbody-driven player. Higher = snappier and less rope influence; lower = floatier, more visible tug-of-war.")]
+    [SerializeField] private float physicsMoveAccel = 12f;
+    [Tooltip("PLACEHOLDER ground probe for Rigidbody jumps (single ray below the capsule center) until real fall/land animations and proper grounding exist.")]
+    [SerializeField] private float groundProbeDistance = 1.15f;
+
+    [Header("Auto-recover placeholder (F3 Change 3) — TODO: replace with real get-up animation once available")]
+    [Tooltip("transform.up · world-up below this counts as tipped over.")]
+    [SerializeField] private float uprightDotThreshold = 0.5f;
+    [Tooltip("Seconds a player must stay tipped before snapping back upright.")]
+    [SerializeField] private float uprightRecoverDelay = 1.5f;
+
     /// <summary>One frame of player intent, sent owner → server.</summary>
     public struct MoveInput : INetworkSerializable
     {
@@ -78,7 +90,14 @@ public class PlayerMovement : NetworkBehaviour
     private Vector3 velocity;          // vertical velocity state — server-only when networked
     private MoveInput pendingInput;    // latest owner intent — server-only when networked
 
+    private float tippedSinceTime = -1f;   // Change 3 recovery timer — server-only
+
     private bool IsCaughtInChain => chainLink != null && chainLink.IsCaught.Value;
+
+    // True once ChainManager has made this player's body dynamic (the Hunter from
+    // registration, everyone else from the moment they're caught). Server-side
+    // only — client bodies stay kinematic forever.
+    private bool IsPhysicsDriven => chainLink != null && chainLink.Body != null && !chainLink.Body.isKinematic;
 
     // Server-written; every instance drives its Animator from this when networked.
     private readonly NetworkVariable<float> netAnimSpeed = new NetworkVariable<float>();
@@ -190,6 +209,15 @@ public class PlayerMovement : NetworkBehaviour
                 // in FixedUpdate. Here we only surface the anim blend from intent.
                 Vector2 chainMove = Vector2.ClampMagnitude(pendingInput.Move, 1f);
                 netAnimSpeed.Value = chainMove.sqrMagnitude > 0.001f ? 1f : 0f;
+                pendingInput.JumpPressed = false; // jump unused while chained
+            }
+            else if (IsPhysicsDriven)
+            {
+                // F3 Change 1 (Hunter): motion is applied in FixedUpdate so joint
+                // tension resolves in the same solver step; the jump edge is
+                // consumed there too. Anim blend from intent, like the CC path.
+                Vector2 move = Vector2.ClampMagnitude(pendingInput.Move, 1f);
+                netAnimSpeed.Value = move.sqrMagnitude > 0.001f ? (pendingInput.Sprint ? 2f : 1f) : 0f;
             }
             else
             {
@@ -197,8 +225,8 @@ public class PlayerMovement : NetworkBehaviour
                 // factor (1 for everyone who isn't the chain head).
                 float speedMultiplier = chainLink != null ? chainLink.SpeedMultiplier.Value : 1f;
                 netAnimSpeed.Value = ApplyMovement(pendingInput, Time.deltaTime, speedMultiplier);
+                pendingInput.JumpPressed = false; // jump is an edge — never re-apply it
             }
-            pendingInput.JumpPressed = false; // jump is an edge — never re-apply it
         }
 
         if (animator != null)
@@ -209,14 +237,30 @@ public class PlayerMovement : NetworkBehaviour
 
     private void FixedUpdate()
     {
-        // F3: a caught player's own input becomes force on their chained body —
-        // it tugs against the joint so the chain reads as "holding hands", not
-        // luggage. Server-only, like all movement application.
-        if (!IsNetworkedAndSpawned || !IsServer || !IsCaughtInChain) return;
+        // All Rigidbody-based movement is server-only, like the CC path.
+        if (!IsNetworkedAndSpawned || !IsServer || chainLink == null) return;
 
         Rigidbody body = chainLink.Body;
         if (body == null || body.isKinematic) return;
 
+        if (IsCaughtInChain)
+        {
+            ApplyCaughtTug(body);
+        }
+        else
+        {
+            ApplyPhysicsLocomotion(body);
+        }
+
+        AutoRecoverUpright(body);
+    }
+
+    /// <summary>
+    /// F3: a caught player's own input becomes force on their chained body — it
+    /// tugs against the joint so the chain reads as "holding hands", not luggage.
+    /// </summary>
+    private void ApplyCaughtTug(Rigidbody body)
+    {
         Vector2 clamped = Vector2.ClampMagnitude(pendingInput.Move, 1f);
         Vector3 rawInput = new Vector3(clamped.x, 0f, clamped.y);
         if (rawInput.sqrMagnitude <= 0.001f) return;
@@ -230,6 +274,82 @@ public class PlayerMovement : NetworkBehaviour
         // limits push back instead of being overwritten.
         Quaternion targetRotation = Quaternion.LookRotation(moveDirection, Vector3.up);
         body.MoveRotation(Quaternion.Slerp(body.rotation, targetRotation, rotationSpeed * Time.fixedDeltaTime));
+    }
+
+    /// <summary>
+    /// F3 Change 1: Rigidbody locomotion for the physics-driven Hunter. The body
+    /// is accelerated TOWARD the desired velocity rather than having its velocity
+    /// assigned — that's what makes tug-of-war real: joint tension from caught
+    /// runners adds opposing force in the same solver step, so a pulling chain
+    /// visibly slows or stalls the Hunter instead of being overwritten.
+    /// Camera-relative direction math is identical to the CC path.
+    /// </summary>
+    private void ApplyPhysicsLocomotion(Rigidbody body)
+    {
+        Vector2 clamped = Vector2.ClampMagnitude(pendingInput.Move, 1f);
+        Vector3 rawInput = new Vector3(clamped.x, 0f, clamped.y);
+
+        Vector3 moveDirection = rawInput;
+        if (rawInput.sqrMagnitude > 0.001f)
+        {
+            moveDirection = Quaternion.Euler(0f, pendingInput.CameraYaw, 0f) * rawInput;
+        }
+
+        // Chain-length speed penalty still applies on top of the emergent drag.
+        float speedMultiplier = chainLink.SpeedMultiplier.Value;
+        float targetSpeed = (pendingInput.Sprint ? runSpeed : walkSpeed) * speedMultiplier;
+        Vector3 desiredVelocity = moveDirection * targetSpeed;
+
+        Vector3 velocity = body.linearVelocity;
+        Vector3 horizontalVelocity = new Vector3(velocity.x, 0f, velocity.z);
+        body.AddForce((desiredVelocity - horizontalVelocity) * physicsMoveAccel, ForceMode.Acceleration);
+
+        if (moveDirection.sqrMagnitude > 0.001f)
+        {
+            Quaternion targetRotation = Quaternion.LookRotation(moveDirection, Vector3.up);
+            body.MoveRotation(Quaternion.Slerp(body.rotation, targetRotation, rotationSpeed * Time.fixedDeltaTime));
+        }
+
+        // PLACEHOLDER jump/grounding until real fall/land animations exist: a
+        // single ray from the capsule center to just below the feet. Note the
+        // Rigidbody falls under Physics.gravity (-9.81), not the CC path's -20 —
+        // expect a floatier arc; tune once animations land.
+        if (pendingInput.JumpPressed &&
+            Physics.Raycast(body.position + Vector3.up, Vector3.down, groundProbeDistance))
+        {
+            Vector3 v = body.linearVelocity;
+            v.y = Mathf.Sqrt(-2f * Physics.gravity.y * jumpHeight);
+            body.linearVelocity = v;
+        }
+        pendingInput.JumpPressed = false; // consumed here, not in Update, for this path
+    }
+
+    /// <summary>
+    /// F3 Change 3 — PLACEHOLDER auto-recover. TODO: replace with a real get-up
+    /// animation once fall/land animations exist. Change 2's freeze-X/Z
+    /// constraints should prevent toppling entirely; this is the safety net for
+    /// anything that still slips through (collisions, joint snap-back, etc.).
+    /// </summary>
+    private void AutoRecoverUpright(Rigidbody body)
+    {
+        if (Vector3.Dot(transform.up, Vector3.up) >= uprightDotThreshold)
+        {
+            tippedSinceTime = -1f;
+            return;
+        }
+
+        if (tippedSinceTime < 0f)
+        {
+            tippedSinceTime = Time.time;
+            return;
+        }
+
+        if (Time.time - tippedSinceTime < uprightRecoverDelay) return;
+
+        tippedSinceTime = -1f;
+        body.rotation = Quaternion.Euler(0f, body.rotation.eulerAngles.y, 0f);
+        body.angularVelocity = Vector3.zero;
+        Debug.Log($"[PlayerMovement] Auto-recovered client {OwnerClientId}'s player to standing (placeholder — no get-up animation yet).");
     }
 
     // ---------- Input stage (local machine only) ----------
