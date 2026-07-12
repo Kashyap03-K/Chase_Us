@@ -48,10 +48,11 @@ public class OrbitCamera : MonoBehaviour
 
     // Menus own the cursor: pre-session screens (Mode Select, Host/Join Choice,
     // Map Select, Join, LAN) via their own IsVisible flags, the post-session
-    // lobby via LobbyRoomUI.
+    // lobby via LobbyRoomUI, and the F4 round-result screen (Play Again).
     private static bool MenuWantsCursor =>
         ModeSelectUI.IsVisible || HostJoinChoiceUI.IsVisible || MapSelectUI.IsVisible ||
-        JoinScreenUI.IsVisible || LanConnectUI.IsVisible || LobbyRoomUI.IsVisible;
+        JoinScreenUI.IsVisible || LanConnectUI.IsVisible || LobbyRoomUI.IsVisible ||
+        ResultScreenUI.IsVisible;
 
     private void Start()
     {
