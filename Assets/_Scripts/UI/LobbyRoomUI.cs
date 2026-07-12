@@ -28,6 +28,22 @@ public class LobbyRoomUI : MonoBehaviour
     [Header("Wiring (auto-found if left null)")]
     [SerializeField] private ModeSelectUI modeSelectUI;
 
+    [Header("Custom button art (optional — falls back to candy pills if null)")]
+    [SerializeField] private Sprite startGameSprite;
+    [SerializeField] private Sprite leaveRoomSprite;
+    [SerializeField] private Sprite copySprite;
+
+    [Header("Button sizes (used when the sprite variant is active)")]
+    [SerializeField] private Vector2 startGameButtonSize = new Vector2(400, 100);
+    [SerializeField] private Vector2 leaveButtonSize     = new Vector2(300, 100);
+    [SerializeField] private Vector2 copyButtonSize      = new Vector2(160, 60);
+
+    [Header("Background")]
+    [SerializeField, Tooltip("Optional. If null, uses a solid Ground-color background.")]
+    private Sprite backgroundSprite;
+    [SerializeField, Range(0f, 1f), Tooltip("Dark overlay opacity on top of the background image — keeps foreground UI legible.")]
+    private float backgroundOverlayAlpha = 0.25f;
+
     [Header("Layout")]
     [SerializeField] private Vector2 referenceResolution = new Vector2(1920, 1080);
     [SerializeField] private int canvasSortingOrder = 90;   // below Map/Mode Select so those cover it if both show
@@ -311,8 +327,30 @@ public class LobbyRoomUI : MonoBehaviour
         RectTransform rt = (RectTransform)bg.transform;
         Stretch(rt);
         Image img = bg.GetComponent<Image>();
-        img.color = UITheme.Ground;
         img.raycastTarget = true;
+
+        if (backgroundSprite != null)
+        {
+            img.sprite = backgroundSprite;
+            img.color = Color.white;
+            img.preserveAspect = false;
+        }
+        else
+        {
+            img.color = UITheme.Ground;
+        }
+
+        if (backgroundSprite != null && backgroundOverlayAlpha > 0f)
+        {
+            GameObject overlay = new GameObject("Overlay", typeof(RectTransform), typeof(Image));
+            overlay.transform.SetParent(parent, false);
+            RectTransform overlayRT = (RectTransform)overlay.transform;
+            Stretch(overlayRT);
+            Image overlayImg = overlay.GetComponent<Image>();
+            Color32 ground = UITheme.Ground;
+            overlayImg.color = new Color(ground.r / 255f, ground.g / 255f, ground.b / 255f, backgroundOverlayAlpha);
+            overlayImg.raycastTarget = false;
+        }
     }
 
     private RectTransform BuildTwoColumnGrid(Transform parent)
@@ -395,29 +433,37 @@ public class LobbyRoomUI : MonoBehaviour
 
     private TMP_Text BuildCodeTile(Transform parent, string ch)
     {
+        // Rounded rune slot: warm gold border (AccentDk) around a dark plum interior,
+        // character rendered in aged-gold serif. Empty slots (ch == "-") show a faint
+        // dim character; filled slots pop with the bright accent gold.
         GameObject tile = new GameObject("CodeTile", typeof(RectTransform), typeof(Image));
         tile.transform.SetParent(parent, false);
         LayoutElement le = tile.AddComponent<LayoutElement>();
-        le.preferredWidth = 64;
-        le.preferredHeight = 80;
+        le.preferredWidth = 72;
+        le.preferredHeight = 88;
 
         Image bg = tile.GetComponent<Image>();
-        bg.color = UITheme.SurfaceHi;
+        bg.sprite = UITheme.PillSprite;
+        bg.type = Image.Type.Sliced;
+        bg.color = UITheme.AccentDk;
         bg.raycastTarget = false;
 
-        // Inner subtle border via inset (looks flat but consistent with lobby mockup).
         GameObject inner = new GameObject("Inner", typeof(RectTransform), typeof(Image));
         inner.transform.SetParent(tile.transform, false);
         RectTransform iRT = (RectTransform)inner.transform;
         iRT.anchorMin = Vector2.zero;
         iRT.anchorMax = Vector2.one;
-        iRT.offsetMin = new Vector2(1.5f, 1.5f);
-        iRT.offsetMax = new Vector2(-1.5f, -1.5f);
+        iRT.offsetMin = new Vector2(3, 3);
+        iRT.offsetMax = new Vector2(-3, -3);
         Image iImg = inner.GetComponent<Image>();
-        iImg.color = UITheme.SurfaceHi;
+        iImg.sprite = UITheme.PillSprite;
+        iImg.type = Image.Type.Sliced;
+        iImg.color = UITheme.Surface;
         iImg.raycastTarget = false;
 
-        TMP_Text t = CreateText(inner.transform, "Char", ch, 44, UITheme.Text, style: FontStyles.Bold, letterSpacing: 0, wrap: false);
+        TMP_Text t = CreateText(inner.transform, "Char", ch, 44, UITheme.Accent, style: FontStyles.Bold, letterSpacing: 0, wrap: false);
+        t.outlineColor = UITheme.AccentDk;
+        t.outlineWidth = 0.18f;
         Stretch(t.rectTransform);
         t.alignment = TextAlignmentOptions.Center;
         return t;
@@ -438,7 +484,10 @@ public class LobbyRoomUI : MonoBehaviour
         LayoutElement le = row.AddComponent<LayoutElement>();
         le.preferredHeight = 40;
 
-        BuildSmallGhostButton(row.transform, "COPY", OnCopyClicked, width: 92);
+        if (copySprite != null)
+            BuildActionImageButton(row.transform, "COPY", copySprite, OnCopyClicked, flexWidth: 0f, preferredWidth: (int)copyButtonSize.x, preferredHeight: (int)copyButtonSize.y);
+        else
+            BuildSmallGhostButton(row.transform, "COPY", OnCopyClicked, width: 92);
     }
 
     private void BuildClientStatusLine(Transform parent)
@@ -545,19 +594,63 @@ public class LobbyRoomUI : MonoBehaviour
         row.transform.SetParent(parent, false);
         HorizontalLayoutGroup hlg = row.GetComponent<HorizontalLayoutGroup>();
         hlg.padding = new RectOffset(0, 0, 12, 0);
-        hlg.spacing = 10;
+        hlg.spacing = 14;
         hlg.childAlignment = TextAnchor.MiddleCenter;
         hlg.childControlWidth = true;
         hlg.childControlHeight = true;
-        hlg.childForceExpandWidth = true;
-        hlg.childForceExpandHeight = true;
+        hlg.childForceExpandWidth = false;   // respect each button's preferredWidth
+        hlg.childForceExpandHeight = false;  // respect each button's preferredHeight
         LayoutElement le = row.AddComponent<LayoutElement>();
-        le.preferredHeight = 56;
+        // Illustrated plaques are ~3.5:1; row height sized so the buttons render at
+        // their intended aspect without the layout crushing or stretching them.
+        le.preferredHeight = 110;
 
-        BuildLobbyActionButton(row.transform, "LEAVE", ghost: true, wide: false, onClick: OnLeaveClicked);
+        if (leaveRoomSprite != null)
+            BuildActionImageButton(row.transform, "LEAVE", leaveRoomSprite, OnLeaveClicked, flexWidth: 0f, preferredWidth: (int)leaveButtonSize.x, preferredHeight: (int)leaveButtonSize.y);
+        else
+            BuildLobbyActionButton(row.transform, "LEAVE", ghost: true, wide: false, onClick: OnLeaveClicked);
 
-        GameObject startGO = BuildLobbyActionButton(row.transform, "START GAME", ghost: false, wide: true, onClick: OnStartGameClicked, outLabel: out startGameLabel);
-        startGameButton = startGO.GetComponent<Button>();
+        if (startGameSprite != null)
+        {
+            startGameButton = BuildActionImageButton(row.transform, "START GAME", startGameSprite, OnStartGameClicked, flexWidth: 0f, preferredWidth: (int)startGameButtonSize.x, preferredHeight: (int)startGameButtonSize.y);
+            startGameLabel = null; // no separate label — sprite bakes the text in
+        }
+        else
+        {
+            GameObject startGO = BuildLobbyActionButton(row.transform, "START GAME", ghost: false, wide: true, onClick: OnStartGameClicked, outLabel: out startGameLabel);
+            startGameButton = startGO.GetComponent<Button>();
+        }
+    }
+
+    // Sprite-based row-action button that fits into the same HorizontalLayoutGroup
+    // as the ghost/candy variants — LayoutElement carries the flex/preferred width.
+    private Button BuildActionImageButton(Transform parent, string name, Sprite sprite, Action onClick, float flexWidth, int preferredWidth, int preferredHeight = 56)
+    {
+        GameObject go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
+        go.transform.SetParent(parent, false);
+        LayoutElement le = go.AddComponent<LayoutElement>();
+        le.flexibleWidth = flexWidth;
+        le.preferredWidth = preferredWidth;
+        le.preferredHeight = preferredHeight;
+
+        Image img = go.GetComponent<Image>();
+        img.sprite = sprite;
+        img.preserveAspect = true;
+        img.raycastTarget = true;
+
+        Button btn = go.GetComponent<Button>();
+        btn.targetGraphic = img;
+        ColorBlock cb = btn.colors;
+        cb.normalColor      = Color.white;
+        cb.highlightedColor = new Color(1.12f, 1.12f, 1.12f, 1f);
+        cb.pressedColor     = new Color(0.88f, 0.88f, 0.88f, 1f);
+        cb.selectedColor    = new Color(1.12f, 1.12f, 1.12f, 1f);
+        cb.disabledColor    = new Color(0.55f, 0.55f, 0.55f, 1f);
+        cb.colorMultiplier = 1f;
+        cb.fadeDuration = 0.12f;
+        btn.colors = cb;
+        btn.onClick.AddListener(() => onClick());
+        return btn;
     }
 
     private void BuildSmallGhostButton(Transform parent, string label, Action onClick, int width)
@@ -665,17 +758,30 @@ public class LobbyRoomUI : MonoBehaviour
         }
         else
         {
-            bg.color = UITheme.Accent;
+            // Two-layer: outer AccentDk acts as a warm-gold stroke echoing the
+            // CHASE US wordmark's brown outline; inner Accent is the fill.
+            bg.color = UITheme.AccentDk;
 
-            VerticalLayoutGroup vlg = btn.AddComponent<VerticalLayoutGroup>();
+            GameObject inner = new GameObject("Inner", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup));
+            inner.transform.SetParent(btn.transform, false);
+            RectTransform iRT = (RectTransform)inner.transform;
+            iRT.anchorMin = Vector2.zero;
+            iRT.anchorMax = Vector2.one;
+            iRT.offsetMin = new Vector2(3f, 3f);
+            iRT.offsetMax = new Vector2(-3f, -3f);
+            Image iImg = inner.GetComponent<Image>();
+            iImg.color = UITheme.Accent;
+            iImg.raycastTarget = false;
+
+            VerticalLayoutGroup vlg = inner.GetComponent<VerticalLayoutGroup>();
             vlg.childAlignment = TextAnchor.MiddleCenter;
             vlg.childControlWidth = true;
             vlg.childControlHeight = true;
             vlg.childForceExpandWidth = true;
             vlg.childForceExpandHeight = true;
-            vlg.padding = new RectOffset(16, 16, 8, 8);
+            vlg.padding = new RectOffset(16, 16, 10, 10);
 
-            button.targetGraphic = bg;
+            button.targetGraphic = iImg;
             ColorBlock cb = button.colors;
             cb.normalColor = UITheme.Accent;
             cb.highlightedColor = UITheme.AccentHi;
@@ -686,7 +792,7 @@ public class LobbyRoomUI : MonoBehaviour
             cb.fadeDuration = 0.12f;
             button.colors = cb;
 
-            outLabel = CreateText(btn.transform, "Label", label, 13, UITheme.White, style: FontStyles.Bold, letterSpacing: 6, wrap: false);
+            outLabel = CreateText(inner.transform, "Label", label, 13, UITheme.White, style: FontStyles.Bold, letterSpacing: 6, wrap: false);
         }
         return btn;
     }
@@ -729,10 +835,13 @@ public class LobbyRoomUI : MonoBehaviour
     private void UpdateRoomCode()
     {
         string code = NetworkBootstrap.Instance != null ? (NetworkBootstrap.Instance.JoinCode ?? "") : "";
-        string padded = (code ?? "").PadRight(6, '-');
         for (int i = 0; i < codeCharTexts.Count; i++)
         {
-            codeCharTexts[i].text = i < padded.Length ? padded[i].ToString() : "-";
+            bool filled = i < code.Length;
+            TMP_Text t = codeCharTexts[i];
+            t.text = filled ? code[i].ToString() : "•";
+            // Filled tiles pop with bright accent gold; empty tiles show a dim dot.
+            t.color = filled ? (Color)UITheme.Accent : (Color)UITheme.TextDim;
         }
     }
 

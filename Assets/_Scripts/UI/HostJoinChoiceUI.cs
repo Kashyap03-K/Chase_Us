@@ -19,9 +19,30 @@ public class HostJoinChoiceUI : MonoBehaviour
     [SerializeField] private MapSelectUI mapSelectUI;
     [SerializeField] private JoinScreenUI joinScreenUI;
 
+    [Header("Background")]
+    [SerializeField, Tooltip("Optional. If null, uses a solid Ground-color background.")]
+    private Sprite backgroundSprite;
+    [SerializeField, Range(0f, 1f), Tooltip("Dark overlay opacity on top of the background image.")]
+    private float backgroundOverlayAlpha = 0.25f;
+
     [Header("Layout")]
     [SerializeField] private Vector2 referenceResolution = new Vector2(1920, 1080);
     [SerializeField] private int canvasSortingOrder = 100;
+
+    [Header("Buttons (position over the background art)")]
+    [SerializeField] private Vector2 hostButtonAnchor = new Vector2(0.32f, 0.30f);
+    [SerializeField] private Vector2 joinButtonAnchor = new Vector2(0.68f, 0.30f);
+    [SerializeField] private Vector2 buttonSize = new Vector2(500, 320);
+    [SerializeField] private Vector2 backButtonAnchor = new Vector2(0.5f, 0.06f);
+    [SerializeField] private Vector2 backButtonSize = new Vector2(240, 72);
+
+    [Header("Custom button art (optional — falls back to candy pills if null)")]
+    [Tooltip("Illustrated plaque sprite for the Host button. Whole plaque IS the button — labels/icons baked in.")]
+    [SerializeField] private Sprite hostButtonSprite;
+    [Tooltip("Illustrated plaque sprite for the Join button.")]
+    [SerializeField] private Sprite joinButtonSprite;
+    [Tooltip("Illustrated sprite for the Back button.")]
+    [SerializeField] private Sprite backButtonSprite;
 
     private CanvasGroup canvasGroup;
 
@@ -81,10 +102,23 @@ public class HostJoinChoiceUI : MonoBehaviour
         canvasGroup = canvasGO.AddComponent<CanvasGroup>();
 
         BuildBackground(canvasGO.transform);
-        RectTransform column = BuildColumn(canvasGO.transform);
-        BuildHeader(column);
-        BuildChoiceButtons(column);
-        BuildBackButton(column);
+
+        // Host + Join: use the illustrated plaque sprites if the user dropped them
+        // into the Inspector; otherwise fall back to procedural candy pills.
+        if (hostButtonSprite != null)
+            UIButton.BuildImageButton(canvasGO.transform, "Host a Room", hostButtonAnchor, buttonSize, hostButtonSprite, OnHostClicked);
+        else
+            UIButton.BuildCandyPill (canvasGO.transform, "Host a Room", hostButtonAnchor, buttonSize, UITheme.ButtonGreen, UITheme.ButtonGreenHi, OnHostClicked);
+
+        if (joinButtonSprite != null)
+            UIButton.BuildImageButton(canvasGO.transform, "Join a Room", joinButtonAnchor, buttonSize, joinButtonSprite, OnJoinClicked);
+        else
+            UIButton.BuildCandyPill (canvasGO.transform, "Join a Room", joinButtonAnchor, buttonSize, UITheme.ButtonBlue,  UITheme.ButtonBlueHi,  OnJoinClicked);
+
+        if (backButtonSprite != null)
+            UIButton.BuildImageButton(canvasGO.transform, "Back", backButtonAnchor, backButtonSize, backButtonSprite, OnBackClicked);
+        else
+            UIButton.BuildCandyPill(canvasGO.transform, "Back", backButtonAnchor, backButtonSize, UITheme.Ground, UITheme.Ground2, OnBackClicked, fontSize: 24);
     }
 
     private void BuildBackground(Transform parent)
@@ -97,159 +131,33 @@ public class HostJoinChoiceUI : MonoBehaviour
         rt.offsetMin = Vector2.zero;
         rt.offsetMax = Vector2.zero;
         Image img = bg.GetComponent<Image>();
-        img.color = UITheme.Ground;
         img.raycastTarget = true;
-    }
 
-    private RectTransform BuildColumn(Transform parent)
-    {
-        GameObject col = new GameObject("Column", typeof(RectTransform), typeof(VerticalLayoutGroup));
-        col.transform.SetParent(parent, false);
-        RectTransform rt = (RectTransform)col.transform;
-        rt.anchorMin = new Vector2(0.5f, 0.5f);
-        rt.anchorMax = new Vector2(0.5f, 0.5f);
-        rt.pivot = new Vector2(0.5f, 0.5f);
-        rt.sizeDelta = new Vector2(760, 520);
-        rt.anchoredPosition = Vector2.zero;
+        if (backgroundSprite != null)
+        {
+            img.sprite = backgroundSprite;
+            img.color = Color.white;
+            img.preserveAspect = false;
+        }
+        else
+        {
+            img.color = UITheme.Ground;
+        }
 
-        VerticalLayoutGroup vlg = col.GetComponent<VerticalLayoutGroup>();
-        vlg.childAlignment = TextAnchor.MiddleCenter;
-        vlg.spacing = 32;
-        vlg.childControlWidth = true;
-        vlg.childControlHeight = true;
-        vlg.childForceExpandWidth = true;
-        vlg.childForceExpandHeight = false;
-        return rt;
-    }
-
-    private void BuildHeader(Transform parent)
-    {
-        GameObject header = new GameObject("Header", typeof(RectTransform), typeof(VerticalLayoutGroup));
-        header.transform.SetParent(parent, false);
-        VerticalLayoutGroup vlg = header.GetComponent<VerticalLayoutGroup>();
-        vlg.childAlignment = TextAnchor.MiddleCenter;
-        vlg.spacing = 10;
-        vlg.childControlWidth = true;
-        vlg.childControlHeight = true;
-        vlg.childForceExpandWidth = true;
-        vlg.childForceExpandHeight = false;
-
-        CreateText(header.transform, "Eyebrow", "PLAY ONLINE", 14, UITheme.TextMuted, letterSpacing: 12);
-        CreateText(header.transform, "Title",   "HOST OR JOIN?", 60, UITheme.Text, style: FontStyles.Bold, letterSpacing: 4, wrap: false);
-        CreateText(header.transform, "Blurb",   "Start a new room and share the code, or drop into someone else's room with a code they've shared.", 15, UITheme.TextMuted);
-    }
-
-    private void BuildChoiceButtons(Transform parent)
-    {
-        GameObject row = new GameObject("Buttons", typeof(RectTransform), typeof(HorizontalLayoutGroup));
-        row.transform.SetParent(parent, false);
-        HorizontalLayoutGroup hlg = row.GetComponent<HorizontalLayoutGroup>();
-        hlg.childAlignment = TextAnchor.MiddleCenter;
-        hlg.spacing = 20;
-        hlg.childControlWidth = true;
-        hlg.childControlHeight = true;
-        hlg.childForceExpandWidth = true;
-        hlg.childForceExpandHeight = true;
-        LayoutElement rowLE = row.AddComponent<LayoutElement>();
-        rowLE.preferredHeight = 180;
-
-        BuildChoiceButton(row.transform, "HOST A ROOM", "CREATE A NEW GAME · SHARE THE CODE",   UITheme.Accent,  OnHostClicked);
-        BuildChoiceButton(row.transform, "JOIN A ROOM", "ENTER A CODE · DROP INTO A GAME",       UITheme.Accent2, OnJoinClicked);
-    }
-
-    private void BuildChoiceButton(Transform parent, string label, string hint, Color32 accent, Action onClick)
-    {
-        GameObject card = new GameObject(label, typeof(RectTransform), typeof(Image), typeof(Button));
-        card.transform.SetParent(parent, false);
-
-        Image border = card.GetComponent<Image>();
-        border.color = accent;
-        border.raycastTarget = true;
-
-        const int borderThickness = 2;
-        GameObject inner = new GameObject("Inner", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup));
-        inner.transform.SetParent(card.transform, false);
-        RectTransform innerRT = (RectTransform)inner.transform;
-        innerRT.anchorMin = Vector2.zero;
-        innerRT.anchorMax = Vector2.one;
-        innerRT.offsetMin = new Vector2(borderThickness, borderThickness);
-        innerRT.offsetMax = new Vector2(-borderThickness, -borderThickness);
-
-        Image fill = inner.GetComponent<Image>();
-        fill.color = UITheme.SurfaceHi;
-        fill.raycastTarget = false;
-
-        VerticalLayoutGroup vlg = inner.GetComponent<VerticalLayoutGroup>();
-        vlg.childAlignment = TextAnchor.MiddleCenter;
-        vlg.spacing = 10;
-        vlg.padding = new RectOffset(24, 24, 24, 24);
-        vlg.childControlWidth = true;
-        vlg.childControlHeight = true;
-        vlg.childForceExpandWidth = true;
-        vlg.childForceExpandHeight = false;
-
-        Button button = card.GetComponent<Button>();
-        button.targetGraphic = fill;
-        ColorBlock cb = button.colors;
-        cb.normalColor = UITheme.SurfaceHi;
-        cb.highlightedColor = UITheme.Ground2;
-        cb.pressedColor = UITheme.Surface;
-        cb.selectedColor = UITheme.Ground2;
-        cb.disabledColor = UITheme.Surface;
-        cb.colorMultiplier = 1f;
-        cb.fadeDuration = 0.12f;
-        button.colors = cb;
-        button.onClick.AddListener(() => onClick());
-
-        CreateText(inner.transform, "Label", label, 36, UITheme.Text, style: FontStyles.Bold, letterSpacing: 4, wrap: false);
-        CreateText(inner.transform, "Hint",  hint,  14, UITheme.TextMuted, letterSpacing: 4);
-    }
-
-    private void BuildBackButton(Transform parent)
-    {
-        GameObject btn = new GameObject("Back", typeof(RectTransform), typeof(Image), typeof(Button));
-        btn.transform.SetParent(parent, false);
-        LayoutElement le = btn.AddComponent<LayoutElement>();
-        le.preferredHeight = 44;
-        le.preferredWidth = 160;
-
-        Image bg = btn.GetComponent<Image>();
-        bg.color = UITheme.StrokeHi;
-        bg.raycastTarget = true;
-
-        GameObject inner = new GameObject("Inner", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup));
-        inner.transform.SetParent(btn.transform, false);
-        RectTransform iRT = (RectTransform)inner.transform;
-        iRT.anchorMin = Vector2.zero;
-        iRT.anchorMax = Vector2.one;
-        iRT.offsetMin = new Vector2(1.5f, 1.5f);
-        iRT.offsetMax = new Vector2(-1.5f, -1.5f);
-        Image iImg = inner.GetComponent<Image>();
-        iImg.color = UITheme.Ground;
-        iImg.raycastTarget = false;
-
-        VerticalLayoutGroup vlg = inner.GetComponent<VerticalLayoutGroup>();
-        vlg.childAlignment = TextAnchor.MiddleCenter;
-        vlg.childControlWidth = true;
-        vlg.childControlHeight = true;
-        vlg.childForceExpandWidth = true;
-        vlg.childForceExpandHeight = true;
-        vlg.padding = new RectOffset(16, 16, 8, 8);
-
-        Button button = btn.GetComponent<Button>();
-        button.targetGraphic = iImg;
-        ColorBlock cb = button.colors;
-        cb.normalColor = UITheme.Ground;
-        cb.highlightedColor = UITheme.Ground2;
-        cb.pressedColor = UITheme.Surface;
-        cb.selectedColor = UITheme.Ground2;
-        cb.disabledColor = UITheme.Surface;
-        cb.colorMultiplier = 1f;
-        cb.fadeDuration = 0.12f;
-        button.colors = cb;
-        button.onClick.AddListener(OnBackClicked);
-
-        CreateText(inner.transform, "Label", "BACK", 13, UITheme.TextMuted, style: FontStyles.Bold, letterSpacing: 6, wrap: false);
+        if (backgroundSprite != null && backgroundOverlayAlpha > 0f)
+        {
+            GameObject overlay = new GameObject("Overlay", typeof(RectTransform), typeof(Image));
+            overlay.transform.SetParent(parent, false);
+            RectTransform overlayRT = (RectTransform)overlay.transform;
+            overlayRT.anchorMin = Vector2.zero;
+            overlayRT.anchorMax = Vector2.one;
+            overlayRT.offsetMin = Vector2.zero;
+            overlayRT.offsetMax = Vector2.zero;
+            Image overlayImg = overlay.GetComponent<Image>();
+            Color32 ground = UITheme.Ground;
+            overlayImg.color = new Color(ground.r / 255f, ground.g / 255f, ground.b / 255f, backgroundOverlayAlpha);
+            overlayImg.raycastTarget = false;
+        }
     }
 
     // ---------- Interactions ----------

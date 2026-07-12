@@ -37,6 +37,14 @@ public class MapSelectUI : MonoBehaviour
     [SerializeField] private HostJoinChoiceUI hostJoinChoiceUI;
     [SerializeField] private ModeSelectUI modeSelectUI;
 
+    [Header("Custom button art (optional — falls back to candy pills if null)")]
+    [SerializeField] private Sprite confirmSprite;
+    [SerializeField] private Sprite backSprite;
+
+    [Header("Button sizes (used when the sprite variant is active)")]
+    [SerializeField] private Vector2 confirmButtonSize = new Vector2(400, 100);
+    [SerializeField] private Vector2 backButtonSize    = new Vector2(300, 100);
+
     [Header("Maps")]
     [SerializeField]
     private List<MapDefinition> maps = new List<MapDefinition>
@@ -69,6 +77,12 @@ public class MapSelectUI : MonoBehaviour
             previewTint = new Color(0.09f, 0.06f, 0.15f, 1f)
         }
     };
+
+    [Header("Background")]
+    [SerializeField, Tooltip("Optional. If null, uses a solid Ground-color background.")]
+    private Sprite backgroundSprite;
+    [SerializeField, Range(0f, 1f), Tooltip("Dark overlay opacity on top of the background image.")]
+    private float backgroundOverlayAlpha = 0.25f;
 
     [Header("Layout")]
     [SerializeField] private Vector2 referenceResolution = new Vector2(1920, 1080);
@@ -169,8 +183,29 @@ public class MapSelectUI : MonoBehaviour
         RectTransform rt = (RectTransform)bg.transform;
         Stretch(rt);
         Image img = bg.GetComponent<Image>();
-        img.color = UITheme.Ground;
         img.raycastTarget = true;
+
+        if (backgroundSprite != null)
+        {
+            img.sprite = backgroundSprite;
+            img.color = Color.white;
+            img.preserveAspect = false;
+        }
+        else
+        {
+            img.color = UITheme.Ground;
+        }
+
+        if (backgroundSprite != null && backgroundOverlayAlpha > 0f)
+        {
+            GameObject overlay = new GameObject("Overlay", typeof(RectTransform), typeof(Image));
+            overlay.transform.SetParent(parent, false);
+            Stretch((RectTransform)overlay.transform);
+            Image overlayImg = overlay.GetComponent<Image>();
+            Color32 ground = UITheme.Ground;
+            overlayImg.color = new Color(ground.r / 255f, ground.g / 255f, ground.b / 255f, backgroundOverlayAlpha);
+            overlayImg.raycastTarget = false;
+        }
     }
 
     private RectTransform BuildRoot(Transform parent)
@@ -390,10 +425,46 @@ public class MapSelectUI : MonoBehaviour
         hlg.childForceExpandHeight = false;
 
         LayoutElement rowLE = row.AddComponent<LayoutElement>();
-        rowLE.preferredHeight = 64;
+        rowLE.preferredHeight = 110;
 
-        BuildActionButton(row.transform, "BACK", ghost: true, onClick: OnBackClicked);
-        BuildActionButton(row.transform, "CONFIRM & CONTINUE", ghost: false, onClick: OnConfirmClicked);
+        if (backSprite != null)
+            BuildActionImageButton(row.transform, "BACK", backSprite, OnBackClicked, flexWidth: 0f, preferredWidth: (int)backButtonSize.x, preferredHeight: (int)backButtonSize.y);
+        else
+            BuildActionButton(row.transform, "BACK", ghost: true, onClick: OnBackClicked);
+
+        if (confirmSprite != null)
+            BuildActionImageButton(row.transform, "CONFIRM & CONTINUE", confirmSprite, OnConfirmClicked, flexWidth: 0f, preferredWidth: (int)confirmButtonSize.x, preferredHeight: (int)confirmButtonSize.y);
+        else
+            BuildActionButton(row.transform, "CONFIRM & CONTINUE", ghost: false, onClick: OnConfirmClicked);
+    }
+
+    private Button BuildActionImageButton(Transform parent, string name, Sprite sprite, Action onClick, float flexWidth, int preferredWidth, int preferredHeight = 56)
+    {
+        GameObject go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
+        go.transform.SetParent(parent, false);
+        LayoutElement le = go.AddComponent<LayoutElement>();
+        le.flexibleWidth = flexWidth;
+        le.preferredWidth = preferredWidth;
+        le.preferredHeight = preferredHeight;
+
+        Image img = go.GetComponent<Image>();
+        img.sprite = sprite;
+        img.preserveAspect = true;
+        img.raycastTarget = true;
+
+        Button btn = go.GetComponent<Button>();
+        btn.targetGraphic = img;
+        ColorBlock cb = btn.colors;
+        cb.normalColor      = Color.white;
+        cb.highlightedColor = new Color(1.12f, 1.12f, 1.12f, 1f);
+        cb.pressedColor     = new Color(0.88f, 0.88f, 0.88f, 1f);
+        cb.selectedColor    = new Color(1.12f, 1.12f, 1.12f, 1f);
+        cb.disabledColor    = new Color(0.55f, 0.55f, 0.55f, 1f);
+        cb.colorMultiplier = 1f;
+        cb.fadeDuration = 0.12f;
+        btn.colors = cb;
+        btn.onClick.AddListener(() => onClick());
+        return btn;
     }
 
     private void BuildActionButton(Transform parent, string label, bool ghost, Action onClick)
@@ -402,77 +473,55 @@ public class MapSelectUI : MonoBehaviour
         btn.transform.SetParent(parent, false);
 
         LayoutElement le = btn.AddComponent<LayoutElement>();
-        le.preferredWidth = ghost ? 160 : 300;
+        le.preferredWidth = ghost ? 180 : 320;
         le.preferredHeight = 56;
 
-        Image bg = btn.GetComponent<Image>();
-        bg.raycastTarget = true;
+        Image strokeImg = btn.GetComponent<Image>();
+        strokeImg.sprite = UITheme.PillSprite;
+        strokeImg.type = Image.Type.Sliced;
+        strokeImg.color = UITheme.ButtonBlueStroke;
+        strokeImg.raycastTarget = true;
 
         Button button = btn.GetComponent<Button>();
         button.onClick.AddListener(() => onClick());
 
-        if (ghost)
-        {
-            bg.color = UITheme.StrokeHi;
+        Color32 fillColor  = ghost ? (Color32)UITheme.Ground   : UITheme.ButtonGreen;
+        Color32 hoverColor = ghost ? (Color32)UITheme.Ground2  : UITheme.ButtonGreenHi;
 
-            GameObject inner = new GameObject("Inner", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup));
-            inner.transform.SetParent(btn.transform, false);
-            RectTransform iRT = (RectTransform)inner.transform;
-            iRT.anchorMin = Vector2.zero;
-            iRT.anchorMax = Vector2.one;
-            iRT.offsetMin = new Vector2(1.5f, 1.5f);
-            iRT.offsetMax = new Vector2(-1.5f, -1.5f);
+        const int strokeThickness = 4;
+        GameObject fillGO = new GameObject("Fill", typeof(RectTransform), typeof(Image));
+        fillGO.transform.SetParent(btn.transform, false);
+        RectTransform fillRT = (RectTransform)fillGO.transform;
+        fillRT.anchorMin = Vector2.zero;
+        fillRT.anchorMax = Vector2.one;
+        fillRT.offsetMin = new Vector2(strokeThickness, strokeThickness);
+        fillRT.offsetMax = new Vector2(-strokeThickness, -strokeThickness);
+        Image fill = fillGO.GetComponent<Image>();
+        fill.sprite = UITheme.PillSprite;
+        fill.type = Image.Type.Sliced;
+        fill.color = fillColor;
+        fill.raycastTarget = false;
 
-            Image iImg = inner.GetComponent<Image>();
-            iImg.color = UITheme.Ground;
-            iImg.raycastTarget = false;
+        button.targetGraphic = fill;
+        ColorBlock cb = button.colors;
+        cb.normalColor = fillColor;
+        cb.highlightedColor = hoverColor;
+        cb.pressedColor = fillColor;
+        cb.selectedColor = hoverColor;
+        cb.disabledColor = UITheme.Surface;
+        cb.colorMultiplier = 1f;
+        cb.fadeDuration = 0.12f;
+        button.colors = cb;
 
-            VerticalLayoutGroup vlg = inner.GetComponent<VerticalLayoutGroup>();
-            vlg.childAlignment = TextAnchor.MiddleCenter;
-            vlg.childControlWidth = true;
-            vlg.childControlHeight = true;
-            vlg.childForceExpandWidth = true;
-            vlg.childForceExpandHeight = true;
-            vlg.padding = new RectOffset(20, 20, 12, 12);
-
-            button.targetGraphic = iImg;
-            ColorBlock cb = button.colors;
-            cb.normalColor = UITheme.Ground;
-            cb.highlightedColor = UITheme.Ground2;
-            cb.pressedColor = UITheme.Surface;
-            cb.selectedColor = UITheme.Ground2;
-            cb.disabledColor = UITheme.Surface;
-            cb.colorMultiplier = 1f;
-            cb.fadeDuration = 0.12f;
-            button.colors = cb;
-
-            CreateText(inner.transform, "Label", label, 15, UITheme.TextMuted, style: FontStyles.Bold, letterSpacing: 6, wrap: false);
-        }
-        else
-        {
-            bg.color = UITheme.Accent;
-
-            VerticalLayoutGroup vlg = btn.AddComponent<VerticalLayoutGroup>();
-            vlg.childAlignment = TextAnchor.MiddleCenter;
-            vlg.childControlWidth = true;
-            vlg.childControlHeight = true;
-            vlg.childForceExpandWidth = true;
-            vlg.childForceExpandHeight = true;
-            vlg.padding = new RectOffset(20, 20, 12, 12);
-
-            button.targetGraphic = bg;
-            ColorBlock cb = button.colors;
-            cb.normalColor = UITheme.Accent;
-            cb.highlightedColor = UITheme.AccentHi;
-            cb.pressedColor = UITheme.Accent;
-            cb.selectedColor = UITheme.AccentHi;
-            cb.disabledColor = UITheme.Accent;
-            cb.colorMultiplier = 1f;
-            cb.fadeDuration = 0.12f;
-            button.colors = cb;
-
-            CreateText(btn.transform, "Label", label, 15, UITheme.White, style: FontStyles.Bold, letterSpacing: 6, wrap: false);
-        }
+        TMP_Text t = CreateText(fillGO.transform, "Label", label, 20, UITheme.White, style: FontStyles.Bold, letterSpacing: 4, wrap: false);
+        RectTransform tRT = t.rectTransform;
+        tRT.anchorMin = Vector2.zero;
+        tRT.anchorMax = Vector2.one;
+        tRT.offsetMin = Vector2.zero;
+        tRT.offsetMax = Vector2.zero;
+        t.alignment = TextAlignmentOptions.Center;
+        t.outlineColor = UITheme.ButtonBlueStroke;
+        t.outlineWidth = 0.15f;
     }
 
     // ---------- Interactions ----------
