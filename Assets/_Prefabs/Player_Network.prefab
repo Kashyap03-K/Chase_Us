@@ -238,7 +238,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CatchDetector
   ShowTopMostFoldoutHeaderGroup: 1
-  catchRadius: 0.9
+  catchRadius: 0.5
   catchCenterHeight: 1
 --- !u!1001 &4711000009
 PrefabInstance:

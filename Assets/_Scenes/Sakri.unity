@@ -453,7 +453,7 @@ MonoBehaviour:
   Ownership: 1
   AlwaysReplicateAsRoot: 0
   SynchronizeTransform: 1
-  <InScenePlaced>k__BackingField: 0
+  <InScenePlaced>k__BackingField: 1
   ActiveSceneSynchronization: 0
   SceneMigrationSynchronization: 0
   SpawnWithObservers: 1
@@ -2715,13 +2715,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0b363fdb3ced886f0baf8812657b3c0b, type: 3}
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::ChainManager
-  restDistanceOverride: 0
-  positionSpring: 200
-  positionDamper: 20
+  restDistanceOverride: 0.8
+  positionSpring: 600
+  positionDamper: 30
   angularSwingLimit: 45
   angularTwistLimit: 30
   jointAnchor: {x: 0, y: 1, z: 0}
-  jointEnableCollision: 1
+  jointEnableCollision: 0
   linkMass: 1
   linkLinearDrag: 1
   linkAngularDrag: 5

@@ -31,18 +31,20 @@ using UnityEngine;
 public class ChainManager : MonoBehaviour, IChainService
 {
     [Header("Joint (design-doc placeholders — tune in playtests)")]
-    [SerializeField, Tooltip("Taut distance between chain members (m). 0 = auto: derive character width from the capsule collider (radius × 2) — 'holding hands' close.")]
-    private float restDistanceOverride = 0f;
-    [SerializeField] private float positionSpring = 200f;
-    [SerializeField] private float positionDamper = 20f;
+    [SerializeField, Tooltip("Taut distance between chain members (m). 0 = auto: derive character width from the capsule collider (radius × 2). Note: below the combined capsule radii, jointEnableCollision must be OFF or the colliders fight the joint.")]
+    private float restDistanceOverride = 0.8f;
+    [SerializeField] private float positionSpring = 600f;
+    [SerializeField] private float positionDamper = 30f;
     [SerializeField, Tooltip("± swing around the two perpendicular axes (deg).")]
     private float angularSwingLimit = 45f;
     [SerializeField, Tooltip("± twist around the joint's primary axis (deg).")]
     private float angularTwistLimit = 30f;
     [SerializeField, Tooltip("Body-local anchor for both joint ends — roughly hand height.")]
     private Vector3 jointAnchor = new Vector3(0f, 1f, 0f);
-    [SerializeField, Tooltip("Let chained bodies collide with each other instead of ghosting through.")]
-    private bool jointEnableCollision = true;
+    [SerializeField, Tooltip("Collision between the two JOINTED bodies only (non-adjacent members always collide). Must stay OFF while the rest distance is below the combined capsule radii (~1.0m), or the contact solver fights the joint.")]
+    private bool jointEnableCollision = false;
+    [SerializeField, Tooltip("Auto rest distance = capsule width × this. Slightly above 1 keeps taut members from resting in permanent collider contact (contact solver fighting the joint = jitter).")]
+    private float restWidthFactor = 1.15f;
 
     [Header("Chained body (uniform per link — length penalty handles the rest)")]
     [SerializeField] private float linkMass = 1f;
@@ -342,6 +344,9 @@ public class ChainManager : MonoBehaviour, IChainService
         if (body == null) return;
 
         body.isKinematic = false;
+        // Dynamic bodies step at the fixed timestep (50Hz) — without render
+        // interpolation the camera sees stepped motion as visible jitter.
+        body.interpolation = RigidbodyInterpolation.Interpolate;
         body.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
         body.linearVelocity = Vector3.zero;
         body.angularVelocity = Vector3.zero;
@@ -380,6 +385,9 @@ public class ChainManager : MonoBehaviour, IChainService
             body.angularVelocity = Vector3.zero;
         }
         body.isKinematic = true;
+        // Kinematic bodies are positioned directly (teleports, NetworkTransform);
+        // interpolation would lag them a frame behind those writes.
+        body.interpolation = RigidbodyInterpolation.None;
     }
 
     // ---------- Joint construction ----------
@@ -394,10 +402,14 @@ public class ChainManager : MonoBehaviour, IChainService
         if (restDistanceOverride > 0f) return restDistanceOverride;
         if (resolvedRestDistance <= 0f)
         {
-            resolvedRestDistance = sample != null && sample.ChainCollider != null
+            float width = sample != null && sample.ChainCollider != null
                 ? sample.ChainCollider.radius * 2f
                 : 1f;
-            Debug.Log($"[ChainManager] Chain rest distance auto-derived from capsule width: {resolvedRestDistance:0.##} m.");
+            // At exactly capsule width the two capsules rest in permanent
+            // contact when taut — the small factor gives the contact solver
+            // clearance while staying "holding hands" close.
+            resolvedRestDistance = width * restWidthFactor;
+            Debug.Log($"[ChainManager] Chain rest distance: capsule width {width:0.##} m × {restWidthFactor:0.##} = {resolvedRestDistance:0.##} m.");
         }
         return resolvedRestDistance;
     }
