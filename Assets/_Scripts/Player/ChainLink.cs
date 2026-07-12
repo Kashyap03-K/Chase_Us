@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -52,12 +53,36 @@ public class ChainLink : NetworkBehaviour
     /// <summary>Server-only: the joint connecting this player to <see cref="Ahead"/>.</summary>
     public ConfigurableJoint JointToAhead { get; set; }
 
+    /// <summary>
+    /// The clientId this player object belongs to, captured at spawn — the same
+    /// stable key F4's CatchDetector uses (OwnerClientId reverts to the server
+    /// when the owner disconnects, so it is NOT a stable identifier).
+    /// </summary>
+    public ulong PlayerClientId { get; private set; }
+
+    /// <summary>Every spawned ChainLink — lets ChainManager resolve clientIds without scene scans.</summary>
+    public static IReadOnlyList<ChainLink> All => all;
+    private static readonly List<ChainLink> all = new List<ChainLink>();
+
     private LineRenderer line;
 
     private void Awake()
     {
         Body = GetComponent<Rigidbody>();
         ChainCollider = GetComponent<CapsuleCollider>();
+    }
+
+    public override void OnNetworkSpawn()
+    {
+        base.OnNetworkSpawn();
+        PlayerClientId = OwnerClientId;
+        if (!all.Contains(this)) all.Add(this);
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        all.Remove(this);
+        base.OnNetworkDespawn();
     }
 
     private void LateUpdate()

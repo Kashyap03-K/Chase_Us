@@ -76,6 +76,7 @@ public class LobbyRoomUI : MonoBehaviour
     {
         BuildCanvas();
         SubscribeToNetworkEvents();
+        EnsureRoundPhaseSubscription();
 
         // If Play started with NGO already connected (unlikely but defensive), reflect state.
         if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
@@ -91,7 +92,44 @@ public class LobbyRoomUI : MonoBehaviour
     private void OnDestroy()
     {
         UnsubscribeFromNetworkEvents();
+        if (boundRoundManager != null)
+        {
+            boundRoundManager.Phase.OnValueChanged -= HandleRoundPhaseChanged;
+            boundRoundManager = null;
+        }
         IsVisible = false;
+    }
+
+    // ---------- Replicated lobby dismissal (F4 bug fix) ----------
+
+    private GameRoundManager boundRoundManager;
+
+    private void EnsureRoundPhaseSubscription()
+    {
+        if (boundRoundManager != null || GameRoundManager.Instance == null)
+        {
+            return;
+        }
+        boundRoundManager = GameRoundManager.Instance;
+        boundRoundManager.Phase.OnValueChanged += HandleRoundPhaseChanged;
+    }
+
+    /// <summary>
+    /// Replicated safety net for the one-shot StartGame named message: the
+    /// round phase is a NetworkVariable, so when a round actually starts EVERY
+    /// peer reliably hears about it — even one whose lobby missed the named
+    /// message. Non-host clients were observed stuck on the lobby's
+    /// "waiting for host" view while a round ran; this closes that hole.
+    /// </summary>
+    private void HandleRoundPhaseChanged(GameRoundManager.RoundPhase previous, GameRoundManager.RoundPhase current)
+    {
+        bool roundRunning = current == GameRoundManager.RoundPhase.Active ||
+                            current == GameRoundManager.RoundPhase.Endgame;
+        if (roundRunning && IsVisible)
+        {
+            Debug.Log($"[LobbyRoomUI] Round phase is now {current} — dismissing lobby (phase-driven fallback).");
+            HideForGameplay();
+        }
     }
 
     /// <summary>
@@ -124,6 +162,7 @@ public class LobbyRoomUI : MonoBehaviour
     private void HandleServerStarted()
     {
         RegisterStartGameMessage();
+        EnsureRoundPhaseSubscription();
         ShowForCurrentRole();
         RebuildPlayerList();
     }
@@ -135,6 +174,7 @@ public class LobbyRoomUI : MonoBehaviour
         if (NetworkManager.Singleton != null && clientId == NetworkManager.Singleton.LocalClientId)
         {
             RegisterStartGameMessage();
+            EnsureRoundPhaseSubscription();
             ShowForCurrentRole();
         }
         RebuildPlayerList();
@@ -953,6 +993,20 @@ public class LobbyRoomUI : MonoBehaviour
         }
         // Named messages don't loop back to the host — dismiss locally too.
         HideForGameplay();
+
+        // F4 bridge: kick off the round (Hunter assignment + 5:00 round timer)
+        // the moment the lobby drops everyone into the map. KAS-10's fuller
+        // state machine (in-map countdown etc.) replaces this call later.
+        if (GameRoundManager.Instance != null)
+        {
+            GameRoundManager.Instance.StartRound();
+        }
+        else
+        {
+            Debug.LogError("[LobbyRoomUI] START GAME: no GameRoundManager in the scene — " +
+                           "round/timer/win-condition will NOT run. Add a GameObject with " +
+                           "NetworkObject + GameRoundManager to the scene.");
+        }
     }
 
     // ---------- Shared helpers ----------

@@ -139,6 +139,46 @@ public class PlayerSpawnManager : MonoBehaviour
         Debug.Log($"[PlayerSpawnManager] Placed player of client {clientId} at spawn point {point}.");
     }
 
+    /// <summary>
+    /// F4: re-places every connected player's object on a random, distinct
+    /// spawn point (wrapping if there are more players than points). Called by
+    /// GameRoundManager at each round start — including Play Again — so nobody
+    /// begins a round already inside another player's catch radius. Server-only.
+    /// </summary>
+    public void PlaceAllPlayersRandom()
+    {
+        NetworkManager nm = NetworkManager.Singleton;
+        if (nm == null || !nm.IsServer)
+        {
+            Debug.LogError("[PlayerSpawnManager] PlaceAllPlayersRandom is server-only.");
+            return;
+        }
+
+        // Fisher–Yates shuffle of the spawn indices.
+        int[] order = new int[spawnPoints.Length];
+        for (int i = 0; i < order.Length; i++)
+        {
+            order[i] = i;
+        }
+        for (int i = order.Length - 1; i > 0; i--)
+        {
+            int j = Random.Range(0, i + 1);
+            (order[i], order[j]) = (order[j], order[i]);
+        }
+
+        int placed = 0;
+        foreach (ulong clientId in nm.ConnectedClientsIds)
+        {
+            if (!nm.ConnectedClients.TryGetValue(clientId, out NetworkClient client) || client.PlayerObject == null)
+            {
+                continue;
+            }
+            PlacePlayer(client.PlayerObject, spawnPoints[order[placed % order.Length]]);
+            placed++;
+        }
+        Debug.Log($"[PlayerSpawnManager] Re-placed {placed} player(s) on shuffled spawn points for the new round.");
+    }
+
     private static void PlacePlayer(NetworkObject playerObject, Vector3 position)
     {
         // The CharacterController caches its position — disable it around the
