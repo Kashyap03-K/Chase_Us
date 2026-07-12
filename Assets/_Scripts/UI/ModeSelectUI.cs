@@ -22,9 +22,29 @@ public class ModeSelectUI : MonoBehaviour
     [SerializeField] private MapSelectUI mapSelectUI;
     [SerializeField] private LanConnectUI lanConnectUI;
 
+    [Header("Background")]
+    [SerializeField, Tooltip("Optional. If null, uses a solid Ground-color background.")]
+    private Sprite backgroundSprite;
+    [SerializeField, Range(0f, 1f), Tooltip("Dark overlay opacity on top of the background image.")]
+    private float backgroundOverlayAlpha = 0.25f;
+
     [Header("Layout")]
     [SerializeField] private Vector2 referenceResolution = new Vector2(1920, 1080);
     [SerializeField] private int canvasSortingOrder = 100;
+
+    [Header("Buttons (position over the background art)")]
+    [Tooltip("Center of the Play LAN button in canvas-anchor coords (0,0 = bottom-left; 1,1 = top-right).")]
+    [SerializeField] private Vector2 lanButtonAnchor = new Vector2(0.32f, 0.14f);
+    [Tooltip("Center of the Play Online button.")]
+    [SerializeField] private Vector2 onlineButtonAnchor = new Vector2(0.68f, 0.14f);
+    [Tooltip("Width × height of each button in reference-resolution pixels.")]
+    [SerializeField] private Vector2 buttonSize = new Vector2(560, 180);
+
+    [Header("Custom button art (optional — falls back to candy pills if null)")]
+    [Tooltip("Illustrated sprite for the Play LAN button. Whole sprite IS the button — labels/icons baked in.")]
+    [SerializeField] private Sprite lanButtonSprite;
+    [Tooltip("Illustrated sprite for the Play Online button.")]
+    [SerializeField] private Sprite onlineButtonSprite;
 
     private CanvasGroup canvasGroup;
     private TMP_Text noticeText;
@@ -85,10 +105,40 @@ public class ModeSelectUI : MonoBehaviour
         EnsureEventSystem();
 
         BuildBackground(canvasGO.transform);
-        RectTransform column = BuildColumn(canvasGO.transform);
-        BuildBrand(column);
-        BuildModeButtons(column);
-        BuildNotice(column);
+
+        // Illustrated buttons if the user dropped sprites into the Inspector;
+        // otherwise fall back to procedural candy pills.
+        if (lanButtonSprite != null)
+            UIButton.BuildImageButton(canvasGO.transform, "Play LAN", lanButtonAnchor, buttonSize, lanButtonSprite, OnLanClicked);
+        else
+            UIButton.BuildCandyPill (canvasGO.transform, "Play LAN", lanButtonAnchor, buttonSize, UITheme.ButtonBlue, UITheme.ButtonBlueHi, OnLanClicked);
+
+        if (onlineButtonSprite != null)
+            UIButton.BuildImageButton(canvasGO.transform, "Play Online", onlineButtonAnchor, buttonSize, onlineButtonSprite, OnOnlineClicked);
+        else
+            UIButton.BuildCandyPill (canvasGO.transform, "Play Online", onlineButtonAnchor, buttonSize, UITheme.ButtonBlue, UITheme.ButtonBlueHi, OnOnlineClicked);
+
+        BuildNotice(BuildNoticeAnchor(canvasGO.transform));
+    }
+
+    private RectTransform BuildNoticeAnchor(Transform parent)
+    {
+        GameObject anchor = new GameObject("NoticeAnchor", typeof(RectTransform), typeof(VerticalLayoutGroup));
+        anchor.transform.SetParent(parent, false);
+        RectTransform rt = (RectTransform)anchor.transform;
+        rt.anchorMin = new Vector2(0.5f, 0.05f);
+        rt.anchorMax = new Vector2(0.5f, 0.05f);
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.sizeDelta = new Vector2(1000, 32);
+        rt.anchoredPosition = Vector2.zero;
+
+        VerticalLayoutGroup vlg = anchor.GetComponent<VerticalLayoutGroup>();
+        vlg.childAlignment = TextAnchor.MiddleCenter;
+        vlg.childControlWidth = true;
+        vlg.childControlHeight = true;
+        vlg.childForceExpandWidth = true;
+        vlg.childForceExpandHeight = false;
+        return rt;
     }
 
     private void EnsureEventSystem()
@@ -109,118 +159,30 @@ public class ModeSelectUI : MonoBehaviour
         RectTransform rt = (RectTransform)bg.transform;
         Stretch(rt);
         Image img = bg.GetComponent<Image>();
-        img.color = UITheme.Ground;
         img.raycastTarget = true;
-    }
 
-    private RectTransform BuildColumn(Transform parent)
-    {
-        GameObject col = new GameObject("Column", typeof(RectTransform), typeof(VerticalLayoutGroup));
-        col.transform.SetParent(parent, false);
-        RectTransform rt = (RectTransform)col.transform;
-        rt.anchorMin = new Vector2(0.5f, 0.5f);
-        rt.anchorMax = new Vector2(0.5f, 0.5f);
-        rt.pivot = new Vector2(0.5f, 0.5f);
-        rt.sizeDelta = new Vector2(720, 560);
-        rt.anchoredPosition = Vector2.zero;
+        if (backgroundSprite != null)
+        {
+            img.sprite = backgroundSprite;
+            img.color = Color.white;
+            img.preserveAspect = false;
+        }
+        else
+        {
+            img.color = UITheme.Ground;
+        }
 
-        VerticalLayoutGroup vlg = col.GetComponent<VerticalLayoutGroup>();
-        vlg.childAlignment = TextAnchor.MiddleCenter;
-        vlg.spacing = 40;
-        vlg.childControlWidth = true;
-        vlg.childControlHeight = true;
-        vlg.childForceExpandWidth = true;
-        vlg.childForceExpandHeight = false;
-        return rt;
-    }
-
-    private void BuildBrand(Transform parent)
-    {
-        GameObject brand = new GameObject("Brand", typeof(RectTransform), typeof(VerticalLayoutGroup));
-        brand.transform.SetParent(parent, false);
-
-        VerticalLayoutGroup vlg = brand.GetComponent<VerticalLayoutGroup>();
-        vlg.childAlignment = TextAnchor.MiddleCenter;
-        vlg.spacing = 10;
-        vlg.childControlWidth = true;
-        vlg.childControlHeight = true;
-        vlg.childForceExpandWidth = true;
-        vlg.childForceExpandHeight = false;
-
-        CreateText(brand.transform, "Kicker",  "HIDE  ·  SEEK  ·  MVP", 20, UITheme.TextMuted, letterSpacing: 12);
-        CreateText(brand.transform, "Logo",    "CHASE US",              128, UITheme.Text,      style: FontStyles.Bold, letterSpacing: 4, wrap: false);
-        CreateText(brand.transform, "Tagline", "DUCK  ·  DODGE  ·  TAG", 20, UITheme.TextMuted, letterSpacing: 16);
-    }
-
-    private void BuildModeButtons(Transform parent)
-    {
-        GameObject row = new GameObject("Buttons", typeof(RectTransform), typeof(HorizontalLayoutGroup));
-        row.transform.SetParent(parent, false);
-
-        HorizontalLayoutGroup hlg = row.GetComponent<HorizontalLayoutGroup>();
-        hlg.childAlignment = TextAnchor.MiddleCenter;
-        hlg.spacing = 20;
-        hlg.childControlWidth = true;
-        hlg.childControlHeight = true;
-        hlg.childForceExpandWidth = true;
-        hlg.childForceExpandHeight = true;
-
-        LayoutElement rowLE = row.AddComponent<LayoutElement>();
-        rowLE.preferredHeight = 160;
-
-        BuildModeButton(row.transform, "PLAY LAN",    "SAME WI-FI · NO INTERNET",     UITheme.Accent,  OnLanClicked);
-        BuildModeButton(row.transform, "PLAY ONLINE", "ANYWHERE · VIA UNITY RELAY",   UITheme.Accent2, OnOnlineClicked);
-    }
-
-    private void BuildModeButton(Transform parent, string label, string hint, Color32 accent, Action onClick)
-    {
-        // Card = outer image (solid accent color, acts as the visible border) + Button component
-        GameObject card = new GameObject(label, typeof(RectTransform), typeof(Image), typeof(Button));
-        card.transform.SetParent(parent, false);
-
-        Image border = card.GetComponent<Image>();
-        border.color = accent;
-        border.raycastTarget = true;
-
-        // Inner = interior fill, inset by borderThickness on all sides — reveals the border underneath
-        const int borderThickness = 2;
-        GameObject inner = new GameObject("Inner", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup));
-        inner.transform.SetParent(card.transform, false);
-        RectTransform innerRT = (RectTransform)inner.transform;
-        innerRT.anchorMin = Vector2.zero;
-        innerRT.anchorMax = Vector2.one;
-        innerRT.offsetMin = new Vector2(borderThickness, borderThickness);
-        innerRT.offsetMax = new Vector2(-borderThickness, -borderThickness);
-
-        Image fill = inner.GetComponent<Image>();
-        fill.color = UITheme.SurfaceHi;
-        fill.raycastTarget = false;
-
-        VerticalLayoutGroup vlg = inner.GetComponent<VerticalLayoutGroup>();
-        vlg.childAlignment = TextAnchor.MiddleCenter;
-        vlg.spacing = 8;
-        vlg.padding = new RectOffset(24, 24, 24, 24);
-        vlg.childControlWidth = true;
-        vlg.childControlHeight = true;
-        vlg.childForceExpandWidth = true;
-        vlg.childForceExpandHeight = false;
-
-        Button button = card.GetComponent<Button>();
-        // Target the inner fill so hover/press only tints the interior — the accent border stays solid.
-        button.targetGraphic = fill;
-        ColorBlock cb = button.colors;
-        cb.normalColor = UITheme.SurfaceHi;
-        cb.highlightedColor = UITheme.Ground2;
-        cb.pressedColor = UITheme.Surface;
-        cb.selectedColor = UITheme.Ground2;
-        cb.disabledColor = UITheme.Surface;
-        cb.colorMultiplier = 1f;
-        cb.fadeDuration = 0.12f;
-        button.colors = cb;
-        button.onClick.AddListener(() => onClick());
-
-        CreateText(inner.transform, "Label", label, 40, UITheme.Text,      style: FontStyles.Bold, letterSpacing: 4, wrap: false);
-        CreateText(inner.transform, "Hint",  hint,  16, UITheme.TextMuted, letterSpacing: 4);
+        if (backgroundSprite != null && backgroundOverlayAlpha > 0f)
+        {
+            GameObject overlay = new GameObject("Overlay", typeof(RectTransform), typeof(Image));
+            overlay.transform.SetParent(parent, false);
+            RectTransform overlayRT = (RectTransform)overlay.transform;
+            Stretch(overlayRT);
+            Image overlayImg = overlay.GetComponent<Image>();
+            Color32 ground = UITheme.Ground;
+            overlayImg.color = new Color(ground.r / 255f, ground.g / 255f, ground.b / 255f, backgroundOverlayAlpha);
+            overlayImg.raycastTarget = false;
+        }
     }
 
     private void BuildNotice(Transform parent)

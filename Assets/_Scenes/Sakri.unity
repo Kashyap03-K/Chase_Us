@@ -2373,6 +2373,7 @@ GameObject:
   - component: {fileID: 954808351}
   - component: {fileID: 954808352}
   - component: {fileID: 954808353}
+  - component: {fileID: 954808354}
   m_Layer: 0
   m_Name: _Bootstrap
   m_TagString: Untagged
@@ -2433,9 +2434,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ModeSelectUI
   hostJoinChoiceUI: {fileID: 0}
   mapSelectUI: {fileID: 0}
-  networkDebugUI: {fileID: 0}
+  lanConnectUI: {fileID: 0}
+  backgroundSprite: {fileID: 21300000, guid: 52c2e2833d0cd8147bc1971af8b6c85a, type: 3}
+  backgroundOverlayAlpha: 0
   referenceResolution: {x: 1920, y: 1080}
   canvasSortingOrder: 100
+  lanButtonAnchor: {x: 0.32, y: 0.14}
+  onlineButtonAnchor: {x: 0.68, y: 0.14}
+  buttonSize: {x: 800, y: 200}
+  lanButtonSprite: {fileID: 21300000, guid: 9724b51ea4d563b4895424b6aaaf4be7, type: 3}
+  onlineButtonSprite: {fileID: 21300000, guid: ab72ae83fd2f84445b84b474921fa827, type: 3}
 --- !u!114 &954808348
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2450,7 +2458,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::MapSelectUI
   hostJoinChoiceUI: {fileID: 0}
   modeSelectUI: {fileID: 0}
-  networkDebugUI: {fileID: 0}
+  confirmSprite: {fileID: 21300000, guid: d93a9292d5a88de40b177ed60666b5bc, type: 3}
+  backSprite: {fileID: 21300000, guid: 8031527ca7d183c48841b036ebb0e778, type: 3}
+  confirmButtonSize: {x: 400, y: 100}
+  backButtonSize: {x: 500, y: 200}
   maps:
   - id: sakri
     displayName: SAKRI ARENA
@@ -2471,6 +2482,8 @@ MonoBehaviour:
     description: "Something new \u2014 team pitches next planning cycle."
     locked: 1
     previewTint: {r: 0.09, g: 0.06, b: 0.15, a: 1}
+  backgroundSprite: {fileID: 21300000, guid: 52c2e2833d0cd8147bc1971af8b6c85a, type: 3}
+  backgroundOverlayAlpha: 0.65
   referenceResolution: {x: 1920, y: 1080}
   canvasSortingOrder: 100
 --- !u!114 &954808349
@@ -2486,7 +2499,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LobbyRoomUI
   modeSelectUI: {fileID: 0}
-  networkDebugUI: {fileID: 0}
+  startGameSprite: {fileID: 21300000, guid: dba6a5d0dcd27744e97cfb0328c0b9df, type: 3}
+  leaveRoomSprite: {fileID: 21300000, guid: 60f6062c40cd4da499958ee5bca2bf5f, type: 3}
+  copySprite: {fileID: 21300000, guid: 097a8fddad276dd4286d77b430f8c369, type: 3}
+  startGameButtonSize: {x: 400, y: 100}
+  leaveButtonSize: {x: 300, y: 100}
+  copyButtonSize: {x: 160, y: 60}
+  backgroundSprite: {fileID: 21300000, guid: e953cd95464911648802ff53790e78ef, type: 3}
+  backgroundOverlayAlpha: 0
   referenceResolution: {x: 1920, y: 1080}
   canvasSortingOrder: 90
   maxPlayers: 4
@@ -2504,6 +2524,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::JoinScreenUI
   hostJoinChoiceUI: {fileID: 0}
   modeSelectUI: {fileID: 0}
+  joinRoomSprite: {fileID: 21300000, guid: 0cdaaeaa4b8d2b44ba99921267ebf2c6, type: 3}
+  backSprite: {fileID: 21300000, guid: 8031527ca7d183c48841b036ebb0e778, type: 3}
+  joinRoomButtonSize: {x: 500, y: 100}
+  backButtonSize: {x: 500, y: 100}
+  backgroundSprite: {fileID: 21300000, guid: 5be92645211599d42a792617d2a9221f, type: 3}
+  backgroundOverlayAlpha: 0
   referenceResolution: {x: 1920, y: 1080}
   canvasSortingOrder: 100
 --- !u!114 &954808351
@@ -2516,13 +2542,23 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b7cba03c63ceb9a4495e0128253fe973, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HostJoinChoiceUI
   modeSelectUI: {fileID: 0}
   mapSelectUI: {fileID: 0}
   joinScreenUI: {fileID: 0}
+  backgroundSprite: {fileID: 21300000, guid: 5be92645211599d42a792617d2a9221f, type: 3}
+  backgroundOverlayAlpha: 0
   referenceResolution: {x: 1920, y: 1080}
   canvasSortingOrder: 100
+  hostButtonAnchor: {x: 0.32, y: 0.3}
+  joinButtonAnchor: {x: 0.68, y: 0.3}
+  buttonSize: {x: 800, y: 220}
+  backButtonAnchor: {x: 0.5, y: 0.06}
+  backButtonSize: {x: 500, y: 100}
+  hostButtonSprite: {fileID: 21300000, guid: 42f26f6ca4411e6428ab8e92fdc89b3f, type: 3}
+  joinButtonSprite: {fileID: 21300000, guid: 8368020948ac7bb468ddc9d32530798b, type: 3}
+  backButtonSprite: {fileID: 21300000, guid: 8031527ca7d183c48841b036ebb0e778, type: 3}
 --- !u!114 &954808352
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2533,9 +2569,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2ab3bee35e3216a42ca5a30c31fcef47, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LanConnectUI
   modeSelectUI: {fileID: 954808347}
+  hostLanSprite: {fileID: 21300000, guid: 42f26f6ca4411e6428ab8e92fdc89b3f, type: 3}
+  backSprite: {fileID: 21300000, guid: 8031527ca7d183c48841b036ebb0e778, type: 3}
+  joinSessionSprite: {fileID: 21300000, guid: 8368020948ac7bb468ddc9d32530798b, type: 3}
+  hostLanButtonSize: {x: 500, y: 110}
+  backButtonSize: {x: 400, y: 100}
+  joinSessionButtonSize: {x: 600, y: 44}
+  backgroundSprite: {fileID: 21300000, guid: d0cdc2c414146c54aa3227af4baf1ef0, type: 3}
+  backgroundOverlayAlpha: 1
   referenceResolution: {x: 1920, y: 1080}
   canvasSortingOrder: 100
   joinTimeoutSeconds: 10
@@ -2549,7 +2593,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1229d8b50f076be4f92eca70b2d3906b, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerSpawnManager
   spawnPoints:
   - {x: -8, y: 0.2, z: -7}
@@ -2558,6 +2602,24 @@ MonoBehaviour:
   - {x: -4, y: 0.2, z: -3}
   offlinePlayer: {fileID: 1576287644}
   orbitCamera: {fileID: 1902783227}
+--- !u!114 &954808354
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 954808342}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2a60438c6c7fcd489ea2eaa095d3e63, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LoadingScreenUI
+  backgroundSprite: {fileID: 21300000, guid: 4ff8b8714f139da4ca57ec4a69a3f2f8, type: 3}
+  backgroundOverlayAlpha: 0.65
+  referenceResolution: {x: 1920, y: 1080}
+  canvasSortingOrder: 200
+  fadeOutDuration: 0.6
+  maxWaitSeconds: 20
 --- !u!1001 &1021576749
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -3716,6 +3778,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f9d17d91430fdc54ea6fc9298a68fdb3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerMovement
+  ShowTopMostFoldoutHeaderGroup: 1
   walkSpeed: 2
   runSpeed: 5
   rotationSpeed: 10
