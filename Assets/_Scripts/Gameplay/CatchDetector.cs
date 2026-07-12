@@ -22,7 +22,7 @@ public class CatchDetector : NetworkBehaviour
 {
     [Header("Catch volume (server-side; playtest item)")]
     [Tooltip("Radius of the catch trigger sphere around the player.")]
-    [SerializeField] private float catchRadius = 0.9f;
+    [SerializeField] private float catchRadius = 0.5f;
     [Tooltip("Height of the trigger sphere's centre above the player pivot (pivot is at the feet).")]
     [SerializeField] private float catchCenterHeight = 1f;
 

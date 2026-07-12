@@ -93,6 +93,10 @@ public class RoundTimerHUD : MonoBehaviour
         canvasGroup = canvasGO.AddComponent<CanvasGroup>();
         canvasGroup.blocksRaycasts = false;
         canvasGroup.interactable = false;
+        // Explicitly start hidden: SetShown(false) in Start() early-returns
+        // (shown already false) and would leave the default alpha of 1 showing
+        // a frozen "5:00" under the menu canvases.
+        canvasGroup.alpha = 0f;
 
         GameObject panel = new GameObject("Panel", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup));
         panel.transform.SetParent(canvasGO.transform, false);

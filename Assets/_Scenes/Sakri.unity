@@ -453,7 +453,7 @@ MonoBehaviour:
   Ownership: 1
   AlwaysReplicateAsRoot: 0
   SynchronizeTransform: 1
-  <InScenePlaced>k__BackingField: 0
+  <InScenePlaced>k__BackingField: 1
   ActiveSceneSynchronization: 0
   SceneMigrationSynchronization: 0
   SpawnWithObservers: 1
@@ -2475,6 +2475,7 @@ GameObject:
   - component: {fileID: 954808355}
   - component: {fileID: 954808354}
   - component: {fileID: 954808356}
+  - component: {fileID: 954808357}
   m_Layer: 0
   m_Name: _Bootstrap
   m_TagString: Untagged
@@ -2668,7 +2669,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: eb46af811c15aa24caf07d7516684834, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::ResultScreenUI
   referenceResolution: {x: 1920, y: 1080}
   canvasSortingOrder: 120
@@ -2702,6 +2703,30 @@ MonoBehaviour:
   canvasSortingOrder: 110
   displaySeconds: 3.5
   fadeSeconds: 0.4
+--- !u!114 &954808357
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 954808342}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0b363fdb3ced886f0baf8812657b3c0b, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ChainManager
+  restDistanceOverride: 0.8
+  positionSpring: 600
+  positionDamper: 30
+  angularSwingLimit: 45
+  angularTwistLimit: 30
+  jointAnchor: {x: 0, y: 1, z: 0}
+  jointEnableCollision: 0
+  linkMass: 1
+  linkLinearDrag: 1
+  linkAngularDrag: 5
+  linkPenalty: 0.05
+  minSpeedFraction: 0.4
 --- !u!1001 &1021576749
 PrefabInstance:
   m_ObjectHideFlags: 0
