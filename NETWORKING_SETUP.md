@@ -148,6 +148,14 @@ as `[NetworkBootstrap] … FAILED (<reason>)`.
   Re-host, get a fresh code.
 - **Client connects then times out after ~10s** — check Run In Background is
   still on, and that the host editor is not paused.
+- **Client logs `[Netcode] NetworkPrefab hash was not found! In-Scene placed
+  NetworkObject soft synchronization failure`** — the two editors are running
+  different versions of the scene (or prefabs). Usually: a NetworkObject was
+  added in one editor and the scene was never saved (Play-mode edits are
+  discarded!), so the ParrelSync clone still loads the old scene. Fix: exit
+  Play mode in the original, verify the object survived, **save the scene**,
+  then let the clone reload it. This error also corrupts the rest of the
+  client's spawn sync — treat any occurrence as a full test invalidator.
 - **What is/isn't synced** — as of this sprint, *nothing* is replicated: no
   player prefab, no NetworkObjects. Each editor renders its own local scene;
   characters visible in both are scene props. Connection state is the only
