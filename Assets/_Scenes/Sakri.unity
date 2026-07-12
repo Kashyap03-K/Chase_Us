@@ -417,6 +417,105 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 5e7c89035efe6cf449452a643c1cd9ae, type: 3}
   m_PrefabInstance: {fileID: 179956982}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &214761544
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 214761546}
+  - component: {fileID: 214761545}
+  - component: {fileID: 214761547}
+  m_Layer: 0
+  m_Name: GameRoundManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &214761545
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 214761544}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 3266575090
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  <InScenePlaced>k__BackingField: 0
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
+--- !u!4 &214761546
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 214761544}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &214761547
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 214761544}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 04ca1fac7a6f31544b6890c42eb73441, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GameRoundManager
+  ShowTopMostFoldoutHeaderGroup: 1
+  roundSeconds: 300
+  endgameSeconds: 60
+  Phase:
+    UpdateTraits:
+      MinSecondsBetweenUpdates: 0
+      MaxSecondsBetweenUpdates: 0
+    m_InternalValue: 0
+  HunterClientId:
+    UpdateTraits:
+      MinSecondsBetweenUpdates: 0
+      MaxSecondsBetweenUpdates: 0
+    m_InternalValue: 18446744073709551615
+  PhaseEndsAtServerTime:
+    UpdateTraits:
+      MinSecondsBetweenUpdates: 0
+      MaxSecondsBetweenUpdates: 0
+    m_InternalValue: 0
+  LastWinner:
+    UpdateTraits:
+      MinSecondsBetweenUpdates: 0
+      MaxSecondsBetweenUpdates: 0
+    m_InternalValue: 0
+  LastWinnerClientId:
+    UpdateTraits:
+      MinSecondsBetweenUpdates: 0
+      MaxSecondsBetweenUpdates: 0
+    m_InternalValue: 18446744073709551615
 --- !u!1001 &245905207
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -2373,6 +2472,9 @@ GameObject:
   - component: {fileID: 954808351}
   - component: {fileID: 954808352}
   - component: {fileID: 954808353}
+  - component: {fileID: 954808355}
+  - component: {fileID: 954808354}
+  - component: {fileID: 954808356}
   m_Layer: 0
   m_Name: _Bootstrap
   m_TagString: Untagged
@@ -2433,7 +2535,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ModeSelectUI
   hostJoinChoiceUI: {fileID: 0}
   mapSelectUI: {fileID: 0}
-  networkDebugUI: {fileID: 0}
+  lanConnectUI: {fileID: 0}
   referenceResolution: {x: 1920, y: 1080}
   canvasSortingOrder: 100
 --- !u!114 &954808348
@@ -2450,7 +2552,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::MapSelectUI
   hostJoinChoiceUI: {fileID: 0}
   modeSelectUI: {fileID: 0}
-  networkDebugUI: {fileID: 0}
   maps:
   - id: sakri
     displayName: SAKRI ARENA
@@ -2486,7 +2587,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LobbyRoomUI
   modeSelectUI: {fileID: 0}
-  networkDebugUI: {fileID: 0}
   referenceResolution: {x: 1920, y: 1080}
   canvasSortingOrder: 90
   maxPlayers: 4
@@ -2516,7 +2616,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b7cba03c63ceb9a4495e0128253fe973, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HostJoinChoiceUI
   modeSelectUI: {fileID: 0}
   mapSelectUI: {fileID: 0}
@@ -2533,7 +2633,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2ab3bee35e3216a42ca5a30c31fcef47, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LanConnectUI
   modeSelectUI: {fileID: 954808347}
   referenceResolution: {x: 1920, y: 1080}
@@ -2549,7 +2649,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1229d8b50f076be4f92eca70b2d3906b, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerSpawnManager
   spawnPoints:
   - {x: -8, y: 0.2, z: -7}
@@ -2558,6 +2658,50 @@ MonoBehaviour:
   - {x: -4, y: 0.2, z: -3}
   offlinePlayer: {fileID: 1576287644}
   orbitCamera: {fileID: 1902783227}
+--- !u!114 &954808354
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 954808342}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eb46af811c15aa24caf07d7516684834, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ResultScreenUI
+  referenceResolution: {x: 1920, y: 1080}
+  canvasSortingOrder: 120
+--- !u!114 &954808355
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 954808342}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9e66bc7fd7bb38b4197f3511b5642cd4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RoundTimerHUD
+  referenceResolution: {x: 1920, y: 1080}
+  canvasSortingOrder: 80
+--- !u!114 &954808356
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 954808342}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80a8aa3fb01952f4aa56087afec99b99, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RoleAnnounceUI
+  referenceResolution: {x: 1920, y: 1080}
+  canvasSortingOrder: 110
+  displaySeconds: 3.5
+  fadeSeconds: 0.4
 --- !u!1001 &1021576749
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -3716,6 +3860,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f9d17d91430fdc54ea6fc9298a68fdb3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerMovement
+  ShowTopMostFoldoutHeaderGroup: 1
   walkSpeed: 2
   runSpeed: 5
   rotationSpeed: 10
@@ -5230,3 +5375,4 @@ SceneRoots:
   - {fileID: 245905207}
   - {fileID: 954808344}
   - {fileID: 1457161419}
+  - {fileID: 214761546}
