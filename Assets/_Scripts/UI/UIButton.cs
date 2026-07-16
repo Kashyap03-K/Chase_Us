@@ -54,7 +54,14 @@ public static class UIButton
         cb.colorMultiplier = 1f;
         cb.fadeDuration = 0.12f;
         btn.colors = cb;
-        btn.onClick.AddListener(() => onClick());
+        btn.onClick.AddListener(() =>
+        {
+            // G3 audio — UI click. Null-conditional so a scene without an
+            // AudioManager (e.g. an isolated UI test scene) never throws.
+            AudioManager am = AudioManager.Instance;
+            if (am != null) am.PlaySfx(am.uiClick);
+            onClick();
+        });
         return btn;
     }
 
@@ -96,7 +103,14 @@ public static class UIButton
         cb.colorMultiplier = 1f;
         cb.fadeDuration = 0.12f;
         btn.colors = cb;
-        btn.onClick.AddListener(() => onClick());
+        btn.onClick.AddListener(() =>
+        {
+            // G3 audio — UI click. Null-conditional so a scene without an
+            // AudioManager (e.g. an isolated UI test scene) never throws.
+            AudioManager am = AudioManager.Instance;
+            if (am != null) am.PlaySfx(am.uiClick);
+            onClick();
+        });
         return btn;
     }
 

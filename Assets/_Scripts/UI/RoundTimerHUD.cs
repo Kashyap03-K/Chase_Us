@@ -19,10 +19,19 @@ public class RoundTimerHUD : MonoBehaviour
     [SerializeField] private Vector2 referenceResolution = new Vector2(1920, 1080);
     [SerializeField] private int canvasSortingOrder = 80;   // below every menu screen
 
+    [Header("Audio (G3)")]
+    [SerializeField, Tooltip("Play the last-seconds cue when the timer drops below this many seconds.")]
+    private double lastSecondsThreshold = 10d;
+
     private CanvasGroup canvasGroup;
     private TMP_Text phaseLabel;
     private TMP_Text timeText;
     private bool shown;
+
+    // G3: fire timer_last_seconds once per timed phase. Reset on phase change /
+    // round stop so both the round timer's and the endgame's last-10s each cue once.
+    private bool lastSecondsFired;
+    private GameRoundManager.RoundPhase lastSeenPhase = GameRoundManager.RoundPhase.Idle;
 
     private void Start()
     {
@@ -43,13 +52,32 @@ public class RoundTimerHUD : MonoBehaviour
         SetShown(roundRunning);
         if (!roundRunning)
         {
+            // Re-arm for the next timed phase.
+            lastSecondsFired = false;
+            lastSeenPhase = GameRoundManager.RoundPhase.Idle;
             return;
+        }
+
+        // New timed phase (Active → Endgame, or a fresh round) re-arms the cue.
+        if (manager.Phase.Value != lastSeenPhase)
+        {
+            lastSeenPhase = manager.Phase.Value;
+            lastSecondsFired = false;
         }
 
         double remaining = manager.PhaseEndsAtServerTime.Value - nm.ServerTime.Time;
         if (remaining < 0d)
         {
             remaining = 0d;   // client clock slightly ahead of the server's end event
+        }
+
+        // G3: one-shot last-seconds cue the first time this phase dips below the
+        // threshold. Runs locally on every peer, so everyone hears their own timer.
+        if (!lastSecondsFired && remaining > 0d && remaining < lastSecondsThreshold)
+        {
+            lastSecondsFired = true;
+            AudioManager am = AudioManager.Instance;
+            if (am != null) am.PlaySfx(am.timerLastSeconds);
         }
 
         int minutes = (int)(remaining / 60d);
