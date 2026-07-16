@@ -2477,6 +2477,8 @@ GameObject:
   - component: {fileID: 954808356}
   - component: {fileID: 954808357}
   - component: {fileID: 954808358}
+  - component: {fileID: 954808359}
+  - component: {fileID: 954808360}
   m_Layer: 0
   m_Name: _Bootstrap
   m_TagString: Untagged
@@ -2791,6 +2793,48 @@ MonoBehaviour:
   canvasSortingOrder: 200
   fadeOutDuration: 0.6
   maxWaitSeconds: 20
+--- !u!114 &954808359
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 954808342}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 333e790ac513e00570c0bdc926c654c8, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::AudioManager
+  chainCatch: {fileID: 8300000, guid: e66b2f5472f30f5a9c6e2879f28b0a08, type: 3}
+  jump: {fileID: 8300000, guid: 778ad0e095fbe89d208e8c73a773e4c2, type: 3}
+  footstep: {fileID: 8300000, guid: ec61d4dd0fa34a725b681e77bae02017, type: 3}
+  landing: {fileID: 8300000, guid: baeb1aa129aa2c46dc6622f2335d2090, type: 3}
+  respawn: {fileID: 8300000, guid: baeb1aa129aa2c46dc6622f2335d2090, type: 3}
+  chainRemove: {fileID: 8300000, guid: e66b2f5472f30f5a9c6e2879f28b0a08, type: 3}
+  roundStart: {fileID: 8300000, guid: d82e643d8af7c4a30ea156a2f94c0e80, type: 3}
+  roleReveal: {fileID: 8300000, guid: 59ca73175f3dfb3627283d0bde186568, type: 3}
+  endgameTrigger: {fileID: 8300000, guid: 6487f6053adbcafdb4ced8ed2fe4607c, type: 3}
+  timerLastSeconds: {fileID: 8300000, guid: f101ee60769ade3e4cbb477778cd0ab3, type: 3}
+  roundWin: {fileID: 8300000, guid: 2137844ca6ab9005b77a6a524b67d56b, type: 3}
+  roundLose: {fileID: 8300000, guid: c62c8c3499561d91dfce44a1d7d846ab, type: 3}
+  uiClick: {fileID: 8300000, guid: f0513ec93d26bfab7b03df88e032ff04, type: 3}
+  musicMenu: {fileID: 8300000, guid: 44ebf0d585a24cb6393e11cbeaab763a, type: 3}
+  musicEndgame: {fileID: 8300000, guid: 6c6ed17c2dd3cc676de0006543e01ade, type: 3}
+  sfxVolume: 1
+  musicVolume: 0.6
+--- !u!114 &954808360
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 954808342}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cbe3d0f1e030035df88766b438ca8e9a, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GameMusicController
+  fadeSeconds: 1.25
 --- !u!1001 &1021576749
 PrefabInstance:
   m_ObjectHideFlags: 0
