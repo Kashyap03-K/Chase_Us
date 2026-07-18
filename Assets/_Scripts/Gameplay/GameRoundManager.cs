@@ -349,6 +349,20 @@ public class GameRoundManager : NetworkBehaviour
         Debug.Log($"[GameRoundManager] CATCH: client {catcherId} caught client {caughtId}. " +
                   $"Chain length (excl. Hunter): {chainMembers.Count}. Runners left: {uncaughtRunners.Count}.");
 
+        // 4. Broadcast the tag/hit reaction anims so every peer sees the catch
+        //    play out visually. The RPCs are declared on PlayerMovement — cheap
+        //    lookup because we already have the NetworkObjects cached.
+        if (playerObjects.TryGetValue(catcherId, out NetworkObject catcherObj) && catcherObj != null)
+        {
+            PlayerMovement catcherMovement = catcherObj.GetComponent<PlayerMovement>();
+            if (catcherMovement != null) catcherMovement.PlayPunchAnimEveryoneRpc();
+        }
+        if (playerObjects.TryGetValue(caughtId, out NetworkObject caughtObj) && caughtObj != null)
+        {
+            PlayerMovement caughtMovement = caughtObj.GetComponent<PlayerMovement>();
+            if (caughtMovement != null) caughtMovement.PlayHitAnimEveryoneRpc();
+        }
+
         EvaluateWinCondition();
     }
 

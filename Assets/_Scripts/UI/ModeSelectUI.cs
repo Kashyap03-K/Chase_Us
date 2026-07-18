@@ -21,6 +21,7 @@ public class ModeSelectUI : MonoBehaviour
     [SerializeField] private HostJoinChoiceUI hostJoinChoiceUI;
     [SerializeField] private MapSelectUI mapSelectUI;
     [SerializeField] private LanConnectUI lanConnectUI;
+    [SerializeField] private CharacterSelectUI characterSelectUI;
 
     [Header("Background")]
     [SerializeField, Tooltip("Optional. If null, uses a solid Ground-color background.")]
@@ -64,6 +65,10 @@ public class ModeSelectUI : MonoBehaviour
         if (lanConnectUI == null)
         {
             lanConnectUI = FindAnyObjectByType<LanConnectUI>();
+        }
+        if (characterSelectUI == null)
+        {
+            characterSelectUI = FindFirstObjectByType<CharacterSelectUI>();
         }
     }
 
@@ -234,9 +239,17 @@ public class ModeSelectUI : MonoBehaviour
 
     private void OnLanClicked()
     {
+        if (characterSelectUI != null)
+        {
+            Debug.Log("[ModeSelectUI] Play LAN → showing Character Select (next=LAN).");
+            Hide();
+            characterSelectUI.Show(CharacterSelectUI.NextScreen.LanConnect);
+            return;
+        }
+
         if (lanConnectUI != null)
         {
-            Debug.Log("[ModeSelectUI] Play LAN → showing LAN host/discover screen.");
+            Debug.LogWarning("[ModeSelectUI] Play LAN: no CharacterSelectUI found — skipping character pick and routing straight to LAN.");
             Hide();
             lanConnectUI.Show();
             return;
@@ -255,16 +268,25 @@ public class ModeSelectUI : MonoBehaviour
             return;
         }
 
-        // Preferred: sub-choice screen so the user picks Host or Join deliberately.
+        // Preferred: character pick, then sub-choice screen.
+        if (characterSelectUI != null)
+        {
+            Debug.Log("[ModeSelectUI] Play Online → showing Character Select (next=HostJoinChoice).");
+            Hide();
+            characterSelectUI.Show(CharacterSelectUI.NextScreen.HostJoinChoice);
+            return;
+        }
+
+        // Fallback: skip character pick, jump straight to Host/Join choice.
         if (hostJoinChoiceUI != null)
         {
-            Debug.Log("[ModeSelectUI] Play Online → showing Host/Join choice.");
+            Debug.LogWarning("[ModeSelectUI] Play Online: no CharacterSelectUI found — skipping character pick.");
             Hide();
             hostJoinChoiceUI.Show();
             return;
         }
 
-        // Fallback: skip the sub-choice, route straight to Map Select (host-only path).
+        // Deep fallback: skip the sub-choice, route straight to Map Select (host-only path).
         if (mapSelectUI != null)
         {
             Debug.LogWarning("[ModeSelectUI] Play Online: no HostJoinChoiceUI found — skipping sub-choice, routing to Map Select (host path only).");
