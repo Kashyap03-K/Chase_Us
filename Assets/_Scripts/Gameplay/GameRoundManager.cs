@@ -355,6 +355,20 @@ public class GameRoundManager : NetworkBehaviour
         AudioManager am = AudioManager.Instance;
         if (am != null) am.PlaySfx(am.chainCatch);
 
+        // 4. Broadcast the tag/hit reaction anims so every peer sees the catch
+        //    play out visually. The RPCs are declared on PlayerMovement — cheap
+        //    lookup because we already have the NetworkObjects cached.
+        if (playerObjects.TryGetValue(catcherId, out NetworkObject catcherObj) && catcherObj != null)
+        {
+            PlayerMovement catcherMovement = catcherObj.GetComponent<PlayerMovement>();
+            if (catcherMovement != null) catcherMovement.PlayPunchAnimEveryoneRpc();
+        }
+        if (playerObjects.TryGetValue(caughtId, out NetworkObject caughtObj) && caughtObj != null)
+        {
+            PlayerMovement caughtMovement = caughtObj.GetComponent<PlayerMovement>();
+            if (caughtMovement != null) caughtMovement.PlayHitAnimEveryoneRpc();
+        }
+
         EvaluateWinCondition();
     }
 

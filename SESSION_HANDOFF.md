@@ -1,6 +1,6 @@
 # Chase Us — Session Handoff
 
-**Last updated:** 2026-07-09
+**Last updated:** 2026-07-18
 **Purpose:** Living document so a fresh AI chat session (or a returning teammate) can pick up work without re-litigating decisions or re-exploring the repo. Not committed to git — this is a working scratchpad, not a team artifact. Consider adding to `.gitignore` if it starts feeling like clutter.
 
 **To resume a new chat:** paste the contents of this file, or say "Read `D:\Free Time\SESSION_HANDOFF.md` and continue where we left off."
@@ -81,7 +81,7 @@ Locked 2026-07-09. One primary Hunter, tagged Runners become **In-Chain** helper
 ### 5-character roster (Pixar-style 3D)
 | Name | Signature | Look |
 |---|---|---|
-| Riven | Green | Brown hair, tan pith helmet, green hoodie, olive shorts |
+| Vigo | Green | Brown hair, tan pith helmet, green hoodie, olive shorts (originally concepted as "Riven"; renamed to Vigo on 2026-07-19) |
 | Mira | Cyan | Girl with two braids, teal sweater, wide-brim explorer hat |
 | Kai | Pink | Blond boy, cherry-red windbreaker, backwards red cap |
 | Nova | Purple | Violet hair, lavender hoodie, purple beanie |
@@ -108,6 +108,10 @@ All lives in `Assets/_Scripts/UI/` unless noted.
 | `JoinScreenUI.cs` | Client's 6-char code entry (KAS-19 Screen 04) |
 | `LobbyRoomUI.cs` | Room room + KAS-25 live player list · observes NGO connection state |
 | `LoadingScreenUI.cs` | Splash / sign-in wait · `sortingOrder = 200`, hides on `ServicesBootstrap.SignedIn` |
+| `CharacterSelectUI.cs` | Character picker (added 2026-07-18). 5-tile roster with **live 3D previews** — each unlocked tile spawns its prefab into a hidden preview stage (layer 30, Y=-1000) and renders it into a RenderTexture via a per-character Camera. Selection persists to `PlayerPrefs["chase_us.selected_character"]` and is exposed via `CharacterSelectUI.SelectedCharacterId` (static). Locked tile if the Inspector's `Roster[i].prefab` slot is null. Sits between Mode Select and the connection screens on both LAN and Online paths. |
+| `Player/CharacterLibrary.cs` | (added 2026-07-18) MonoBehaviour on `_Bootstrap`. Registry mapping roster ids (`vigo`, `mira`, `kai`, `nova`, `sunny`) to visual-only prefabs. Order in the Entries list MUST mirror `CharacterSelectUI.roster` order — index is the wire format. Static singleton, read by `PlayerCharacterVisual` at spawn. |
+| `Player/PlayerCharacterVisual.cs` | (added 2026-07-18) NetworkBehaviour on the networked player prefab. Owner reads `CharacterSelectUI.SelectedCharacterId` at `OnNetworkSpawn`, sends it via `SubmitChoiceRpc`, server clamps + writes `NetworkVariable<byte> characterIndex`, every peer (including late-joiners on initial sync) parents a fresh instance of `CharacterLibrary.GetVisualPrefab(idx)` under the player's `Model` child transform. Kills root motion on the swap and calls `PlayerMovement.RebindAnimator` so the anim speed blend hits the new Animator. |
+| `Player/PlayerMovement.cs` | Added `RebindAnimator(Animator)` public method so `PlayerCharacterVisual` can hand over the freshly-instantiated visual's Animator after the mesh swap — the Inspector-wired reference points at a destroyed GameObject at that moment and would silently no-op. |
 
 **Modified networking:**
 - `Networking/NetworkBootstrap.cs` — `JoinCode` now set BEFORE `StartHost()` (fixes race with `OnServerStarted`), and persisted on client after `StartClientAsync`.
@@ -118,9 +122,9 @@ All lives in `Assets/_Scripts/UI/` unless noted.
 LoadingScreen (sortingOrder 200)
     │  fades on ServicesBootstrap.SignedIn
     ▼
-ModeSelect ── PLAY LAN ── (notice: not implemented)
-    │
-    └── PLAY ONLINE ──────► HostJoinChoice
+ModeSelect ── PLAY LAN ─────► CharacterSelect(next=LAN) ────► LanConnect
+    │                                                              │
+    └── PLAY ONLINE ─► CharacterSelect(next=Online) ─► HostJoinChoice
                                 │
                     ┌───────────┴───────────┐
                     ▼                       ▼
@@ -170,8 +174,13 @@ Check `git log --oneline` on the `Lobby` branch. Recent milestone commits:
 6. **Test** the flow end-to-end in Play mode
 
 ### 🟡 Next up (design pending direction)
-- **Character generation** — 5 character prompts are ready. User needs to run them through their image generator (same tool that made the Riven reference). Prompts are cleaned up for A-pose + no-accessories.
-- **Meshy → Blender → Unity** pipeline for the 5 characters. Meshy is already installed and used for the arena assets. Meshy Rig Model → Humanoid button auto-rigs → export FBX.
+- **Character 3D models — all 5 imported as of 2026-07-18** at `Assets/_Import/Meshy/Character/{Vigo,Kai,Mira,Nova,Sunny}/` (Vigo folder was originally named `Riven/`; renamed on 2026-07-19). Each folder has: `<Name>.fbx` (walking, used as the CharacterSelect prefab because it auto-loops a visible clip), `<Name>_Base.fbx` (T-pose base for KAS-27 gameplay Animator setup), `<Name>_Run/_Jump/_Hit/_Punch.fbx` (extra clips), and 4 textures (`_BaseColor / _Metallic / _Normal / _Roughness`). Meshy stamped exports with per-project working titles (`Nova_the_Adventurer`, `Little_Explorer`, `Redhead_Ranger`) — ignore those, mapping was normalized during import. All rigged with **Meshy Fixed rig (biped)** so shared animations retarget cleanly for KAS-27.
+- **Old Teal Polo test avatar** files are still loose in `Assets/_Import/Meshy/Character/` (root level, not in a subfolder). Proof-of-concept from before the roster existed. Safe to delete once the 5-character CharacterSelect flow is verified working.
+  - **Concept-art rule (locked, do NOT re-litigate):** source PNG must be an **A-pose** (arms held ~35° out with clear visible white space between hands and hips), **no gloves**, **no backpack**, **single character, single view, plain solid white background**. Nano Banana's default output is a character sheet with multi-angle turnaround + forest scenery + hex-code labels — the corrected prompt wrapper in the 2026-07-18 chat log explicitly negatives every one of those. Reuse it for Mira / Kai / Nova / Sunny.
+  - **Unity wiring for each finished FBX:** drop into `Assets/_Import/Meshy/Character/<Name>/`, then drop into the matching `Roster[i].prefab` slot on the `CharacterSelectUI` component (on `_Bootstrap`). Preview + selection are automatic. Empty slots render as "COMING SOON" locked tiles.
+  - **Preview note:** `CharacterSelectUI` disables root motion at spawn so Meshy's walk/run clip loops in place. If the auto-played clip looks jarring for the picker, add an "idle" clip and set it as the Animator's default state.
+  - Still blocks **KAS-27** (network-spawned player prefab).
+- **Apply same background** to Mode Select, Map Select, Host/Join, Join Screen so the whole pre-game feels like one world. Code pattern is identical to LobbyRoomUI's — add `Sprite backgroundSprite` field + modify `BuildBackground()`. Say the word to do this pass.
 - **Apply same background** to Mode Select, Map Select, Host/Join, Join Screen so the whole pre-game feels like one world. Code pattern is identical to LobbyRoomUI's — add `Sprite backgroundSprite` field + modify `BuildBackground()`. Say the word to do this pass.
 
 ### 🟢 Post-Sprint 2 / Sprint 3 setup

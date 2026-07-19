@@ -52,7 +52,7 @@ public class OrbitCamera : MonoBehaviour
     private static bool MenuWantsCursor =>
         ModeSelectUI.IsVisible || HostJoinChoiceUI.IsVisible || MapSelectUI.IsVisible ||
         JoinScreenUI.IsVisible || LanConnectUI.IsVisible || LobbyRoomUI.IsVisible ||
-        ResultScreenUI.IsVisible;
+        ResultScreenUI.IsVisible || CharacterSelectUI.IsVisible;
 
     private void Start()
     {
