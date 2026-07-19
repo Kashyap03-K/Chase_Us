@@ -172,6 +172,9 @@ public class ChainManager : MonoBehaviour, IChainService
 
     public void AttachToTail(NetworkObject caughtPlayer)
     {
+        // G3 audio: do NOT play chain_catch here. GameRoundManager.OnCatch already
+        // fires it in the same call chain (OnCatch → AttachToTail), so adding it
+        // here would double up the catch SFX.
         if (!ServerGuard(nameof(AttachToTail))) return;
 
         ChainLink link = caughtPlayer != null ? caughtPlayer.GetComponent<ChainLink>() : null;

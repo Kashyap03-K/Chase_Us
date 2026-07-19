@@ -349,6 +349,12 @@ public class GameRoundManager : NetworkBehaviour
         Debug.Log($"[GameRoundManager] CATCH: client {catcherId} caught client {caughtId}. " +
                   $"Chain length (excl. Hunter): {chainMembers.Count}. Runners left: {uncaughtRunners.Count}.");
 
+        // G3 audio. NOTE: OnCatch is server-only, so this SFX is heard on the host
+        // only. Making every client hear it would need a client RPC (an invented
+        // hook, out of the G3 brief's "exact hooks only" scope) — flagged in the PR.
+        AudioManager am = AudioManager.Instance;
+        if (am != null) am.PlaySfx(am.chainCatch);
+
         // 4. Broadcast the tag/hit reaction anims so every peer sees the catch
         //    play out visually. The RPCs are declared on PlayerMovement — cheap
         //    lookup because we already have the NetworkObjects cached.
@@ -387,6 +393,12 @@ public class GameRoundManager : NetworkBehaviour
             PhaseEndsAtServerTime.Value = NetworkManager.ServerTime.Time + endgameSeconds;
             endgameTimer = StartCoroutine(EndgameCountdown());
             Debug.Log($"[GameRoundManager] ENDGAME: one runner remains — round timer replaced; chain has {endgameSeconds:0}s to catch them.");
+
+            // G3 audio. Server-only (host-only SFX) — the endgame MUSIC crossfade,
+            // by contrast, is driven off the replicated Phase change so all peers
+            // hear it (GameMusicController).
+            AudioManager am = AudioManager.Instance;
+            if (am != null) am.PlaySfx(am.endgameTrigger);
         }
     }
 
@@ -463,6 +475,10 @@ public class GameRoundManager : NetworkBehaviour
     private void RoundStartedRpc(ulong hunterClientId, int round)
     {
         RoundStarted?.Invoke(hunterClientId, round);
+
+        // G3 audio — runs on every peer (ClientsAndHost RPC), so all players hear it.
+        AudioManager am = AudioManager.Instance;
+        if (am != null) am.PlaySfx(am.roundStart);
     }
 
     /// <summary>Round outcome broadcast — ResultScreenUI consumes the payload event.</summary>
@@ -471,6 +487,20 @@ public class GameRoundManager : NetworkBehaviour
     {
         Debug.Log($"[GameRoundManager] Round result received: {winner} wins (client {winnerClientId}).");
         RoundResultReceived?.Invoke(winner, winnerClientId);
+
+        // G3 audio — runs on every peer. NoContest has no dedicated clip → round_lose
+        // (open question in the PR).
+        AudioManager am = AudioManager.Instance;
+        if (am != null)
+        {
+            switch (winner)
+            {
+                case RoundWinner.Chain:      am.PlaySfx(am.roundWin);  break;  // hunter's team wins
+                case RoundWinner.LastRunner: am.PlaySfx(am.roundLose); break;  // hunter loses
+                case RoundWinner.Runners:    am.PlaySfx(am.roundLose); break;
+                case RoundWinner.NoContest:  am.PlaySfx(am.roundLose); break;  // no dedicated clip
+            }
+        }
     }
 
     // ---------- Disconnect handling (spec §4) ----------
@@ -581,6 +611,11 @@ public class GameRoundManager : NetworkBehaviour
 
         chainService?.RemoveMember(targetClientId);
         chainMembers.Remove(targetClientId);
+
+        // G3 audio. Reuses the chain_catch clip (no separate chain_remove supplied).
+        // Server-only path → host-only SFX (flagged in the PR).
+        AudioManager am = AudioManager.Instance;
+        if (am != null) am.PlaySfx(am.chainRemove);
 
         // Interpretation (flagged in F4 notes): "remove" despawns the abandoned
         // body once F3 has re-seamed the joints around it.
