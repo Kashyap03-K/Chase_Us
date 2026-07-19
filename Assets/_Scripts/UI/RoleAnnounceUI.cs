@@ -55,6 +55,11 @@ public class RoleAnnounceUI : MonoBehaviour
             ? "Catch every runner before the clock runs out."
             : "Stay away from the Hunter. Survive.";
 
+        // G3 audio — role reveal sting (same clip for hunter + runner, no distinct
+        // variants supplied). This handler runs on every peer via RoundStarted.
+        AudioManager am = AudioManager.Instance;
+        if (am != null) am.PlaySfx(am.roleReveal);
+
         canvasGroup.alpha = 1f;
         if (hideRoutine != null)
         {

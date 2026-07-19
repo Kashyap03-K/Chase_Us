@@ -230,6 +230,82 @@ public class PlayerMovement : NetworkBehaviour
         }
     }
 
+    // Animator parameter names — kept as constants so the trigger RPCs and the
+    // shared Animator Controller stay in lockstep. If you rename any parameter
+    // in the Controller, mirror it here or the SetTrigger call becomes a silent
+    // no-op.
+    private const string JumpTriggerName  = "Jump";
+    private const string HitTriggerName   = "Hit";
+    private const string PunchTriggerName = "Punch";
+
+    /// <summary>
+    /// Point the anim driver at a newly-instantiated visual's Animator. Called
+    /// by <see cref="PlayerCharacterVisual"/> after it swaps the mesh under the
+    /// player's Model transform — the Inspector-wired Animator (if any) points
+    /// at a destroyed GameObject at that moment and would silently no-op.
+    /// </summary>
+    public void RebindAnimator(Animator newAnimator)
+    {
+        animator = newAnimator;
+        if (animator != null)
+        {
+            // Push last-known blend value immediately so a stationary swap
+            // doesn't leave the new mesh in whatever default state it shipped in
+            // (Meshy walk clips play by default and would look wrong on an idle player).
+            animator.SetFloat(speedParameterName, IsNetworkedAndSpawned ? netAnimSpeed.Value : 0f);
+        }
+    }
+
+    // ---------- Networked one-shot anim triggers ----------
+
+    /// <summary>
+    /// Every peer (including the server-host) fires the Jump trigger on its
+    /// local Animator. Called from the server-side jump application sites so
+    /// jumps play in lockstep with the actual velocity change. Offline
+    /// (no NetworkObject) callers can skip and hit <see cref="animator"/> directly.
+    /// </summary>
+    [Rpc(SendTo.Everyone)]
+    private void PlayJumpAnimEveryoneRpc()
+    {
+        if (animator != null) animator.SetTrigger(JumpTriggerName);
+    }
+
+    /// <summary>
+    /// Play the Hit reaction on every peer. Invoked by
+    /// <see cref="GameRoundManager"/> on the CAUGHT player when a catch is
+    /// server-confirmed. Public so cross-object server code can call it.
+    /// </summary>
+    [Rpc(SendTo.Everyone)]
+    public void PlayHitAnimEveryoneRpc()
+    {
+        if (animator != null) animator.SetTrigger(HitTriggerName);
+    }
+
+    /// <summary>
+    /// Play the Punch (tag) gesture on every peer. Invoked by
+    /// <see cref="GameRoundManager"/> on the CATCHER (Hunter or chain member)
+    /// when a catch is server-confirmed. Public so cross-object server code
+    /// can call it.
+    /// </summary>
+    [Rpc(SendTo.Everyone)]
+    public void PlayPunchAnimEveryoneRpc()
+    {
+        if (animator != null) animator.SetTrigger(PunchTriggerName);
+    }
+
+    /// <summary>Server-only helper — fire the jump anim on all peers unless we're offline.</summary>
+    private void BroadcastJumpAnim()
+    {
+        if (IsNetworkedAndSpawned)
+        {
+            PlayJumpAnimEveryoneRpc();
+        }
+        else if (animator != null)
+        {
+            animator.SetTrigger(JumpTriggerName);
+        }
+    }
+
     private void FixedUpdate()
     {
         // All Rigidbody-based movement is server-only, like the CC path.
@@ -299,6 +375,7 @@ public class PlayerMovement : NetworkBehaviour
             Vector3 v = body.linearVelocity;
             v.y = Mathf.Sqrt(-2f * gravity * jumpHeight);
             body.linearVelocity = v;
+            BroadcastJumpAnim();
         }
         pendingInput.JumpPressed = false; // consumed here, not in Update, for this path
     }
@@ -347,6 +424,7 @@ public class PlayerMovement : NetworkBehaviour
             Vector3 v = body.linearVelocity;
             v.y = Mathf.Sqrt(-2f * gravity * jumpHeight);
             body.linearVelocity = v;
+            BroadcastJumpAnim();
         }
         pendingInput.JumpPressed = false; // consumed here, not in Update, for this path
     }
@@ -453,6 +531,7 @@ public class PlayerMovement : NetworkBehaviour
         if (controller.isGrounded && input.JumpPressed)
         {
             velocity.y = Mathf.Sqrt(-2f * gravity * jumpHeight);
+            BroadcastJumpAnim();
         }
 
         // --- Apply gravity every frame ---
