@@ -4660,6 +4660,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::RoundTimerHUD
   referenceResolution: {x: 1920, y: 1080}
   canvasSortingOrder: 80
+  lastSecondsThreshold: 10
 --- !u!114 &954808356
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8533,7 +8534,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2669506353498657529, guid: 8720e6997218ca24a9759e6686eb6b12, type: 3}
       propertyPath: m_Convex
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
