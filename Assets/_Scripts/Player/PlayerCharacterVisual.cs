@@ -52,6 +52,19 @@ public class PlayerCharacterVisual : NetworkBehaviour
     private GameObject currentVisual;
     private byte appliedIndex = NoChoice;
 
+    /// <summary>
+    /// Current replicated roster index — <see cref="byte.MaxValue"/> until the
+    /// owner's choice has resolved. Read-only view for G-series consumers
+    /// (NamePlateUI); write permission and sync logic are unchanged.
+    /// </summary>
+    public byte CharacterIndex => characterIndex.Value;
+
+    /// <summary>Sentinel value of <see cref="CharacterIndex"/> meaning "no valid choice yet".</summary>
+    public const byte NoChoiceIndex = NoChoice;
+
+    /// <summary>Fired on every replicated character index change (payload = new index).</summary>
+    public event System.Action<byte> CharacterIndexChanged;
+
     private void Awake()
     {
         if (modelRoot == null)
@@ -144,6 +157,7 @@ public class PlayerCharacterVisual : NetworkBehaviour
     private void HandleIndexChanged(byte previous, byte current)
     {
         ApplyVisual(current);
+        CharacterIndexChanged?.Invoke(current);
     }
 
     private void ApplyVisual(byte index)

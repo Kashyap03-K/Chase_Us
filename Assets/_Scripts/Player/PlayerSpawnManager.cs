@@ -1,34 +1,52 @@
+using System.Collections.Generic;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using UnityEngine;
 
 /// <summary>
-/// KAS-28 (F2): places each connecting player's spawned player object on a
-/// distinct spawn point (server-authoritative — clients receive the position
-/// through NetworkTransform), and swaps the offline scene player out for the
-/// duration of a network session.
+/// Player placement (F2, reworked in G2) + offline-player swap.
 ///
-/// Spawn points are a serialized ring of 4 (this sprint's testing ceiling);
-/// a 5th+ player wraps around rather than erroring, since enforcing a player
-/// cap is lobby scope, not spawn scope.
+/// G2 placement model:
+///   * The Hunter starts every round on <see cref="hunterSpawnPoint"/> — a
+///     hand-placed marker at the map centre (NEEDS Editor placement; origin +
+///     warning until then).
+///   * Runners get random points inside the play area, derived at runtime from
+///     the four "_Boundary" wall transforms (their min/max positions inset by
+///     wall half-thickness + margin). Candidates are rejected if they overlap
+///     anything on the Obstacle layer (assigned to every "_Obstacles" child at
+///     startup by this component) or sit within <see cref="minPlayerSeparation"/>
+///     of any already-placed player. Retries are capped so a bad map config
+///     degrades to a warning, never a hang.
+///   * Connect-time placement (pre-round lobby) deliberately uses the same
+///     random-valid-point path with NO hunter special-case — there is no
+///     hunter before a round starts. (Explicit design choice, see PR.)
 ///
 /// Offline handling: the scene's non-networked Player_Character stays playable
-/// exactly as before when no session is running. While a session runs it is
-/// deactivated (otherwise it would shadow the real networked player and eat
-/// the same input), and reactivated — with the camera handed back — when the
-/// session ends.
+/// exactly as before when no session is running; swapped out during sessions.
 /// </summary>
 public class PlayerSpawnManager : MonoBehaviour
 {
-    [Header("Spawn points (server picks one per connecting player)")]
-    [SerializeField]
-    private Vector3[] spawnPoints =
-    {
-        new Vector3(-8f, 0.2f, -7f),
-        new Vector3(-4f, 0.2f, -7f),
-        new Vector3(-8f, 0.2f, -3f),
-        new Vector3(-4f, 0.2f, -3f)
-    };
+    [Header("G2 — Hunter spawn")]
+    [SerializeField, Tooltip("Marker for the Hunter's round-start position. NEEDS MANUAL PLACEMENT at the map centre in the Editor — until then world origin is used and a warning logged each round.")]
+    private Transform hunterSpawnPoint;
+
+    [Header("G2 — Map bounds")]
+    [SerializeField, Tooltip("Root whose children are the boundary walls ('_Boundary'). Auto-found by name if null; bounds derive from the walls' min/max positions.")]
+    private Transform boundaryRoot;
+    [SerializeField, Tooltip("Inset from the derived wall positions: covers wall half-thickness plus a safety margin.")]
+    private float boundsMargin = 2f;
+    [SerializeField, Tooltip("Fallback play area (x = min X, y = min Z) if _Boundary can't be found. Matches the current Sakri walls.")]
+    private Rect fallbackBounds = new Rect(-24.3f, -24f, 49f, 49.4f);
+
+    [Header("G2 — Runner placement")]
+    [SerializeField, Tooltip("Layer for spawn-blocking geometry. Assigned to every '_Obstacles' child at startup by this component (no per-prefab layer setup existed).")]
+    private string obstacleLayerName = "Obstacle";
+    [SerializeField, Tooltip("Minimum distance between any two spawned players. Catch CONTACT distance is trigger radius (0.5) + capsule radius (0.5) = 1.0m — '2x catch radius' would equal exactly that, so 3x contact distance is used to rule out instant catches. Tunable.")]
+    private float minPlayerSeparation = 3f;
+    [SerializeField, Tooltip("Candidate re-samples per player before giving up with a warning.")]
+    private int maxPlacementAttempts = 20;
+    [SerializeField, Tooltip("Spawn drop height; gravity settles players onto the ground.")]
+    private float spawnHeight = 0.2f;
 
     [Header("Offline scene player (auto-found if left null)")]
     [SerializeField] private GameObject offlinePlayer;
@@ -36,8 +54,12 @@ public class PlayerSpawnManager : MonoBehaviour
     [Header("Camera hand-back (auto-found if left null)")]
     [SerializeField] private OrbitCamera orbitCamera;
 
-    private int nextSpawnIndex;
     private bool subscribed;
+    private bool boundsDerived;
+    private Rect playBounds;
+    private int obstacleMask;
+    private float playerRadius = 0.5f;   // read from the player prefab's CC when available
+    private float playerHeight = 2f;
 
     private void Awake()
     {
@@ -69,6 +91,8 @@ public class PlayerSpawnManager : MonoBehaviour
 
     private void Start()
     {
+        AssignObstacleLayer();
+
         if (NetworkManager.Singleton == null)
         {
             Debug.LogWarning("[PlayerSpawnManager] No NetworkManager in scene — spawn placement disabled.");
@@ -93,11 +117,152 @@ public class PlayerSpawnManager : MonoBehaviour
         NetworkManager.Singleton.OnClientStopped -= HandleSessionStopped;
     }
 
+    // ---------- G2 setup ----------
+
+    /// <summary>
+    /// No dedicated physics layer existed for map geometry (everything shipped
+    /// on Default, which also carries the ground and player capsules — an
+    /// overlap test against Default would false-positive constantly). The
+    /// "Obstacle" layer was added to TagManager; this stamps it onto every
+    /// child under "_Obstacles" at startup so the map team doesn't have to
+    /// re-layer hundreds of prefab instances by hand. Replace with Editor-side
+    /// assignment whenever convenient — this stays correct either way.
+    /// </summary>
+    private void AssignObstacleLayer()
+    {
+        int layer = LayerMask.NameToLayer(obstacleLayerName);
+        if (layer < 0)
+        {
+            Debug.LogError($"[PlayerSpawnManager] Layer '{obstacleLayerName}' does not exist in TagManager — obstacle-aware spawning disabled (candidates will only be separation-checked).");
+            obstacleMask = 0;
+            return;
+        }
+        obstacleMask = 1 << layer;
+
+        GameObject obstaclesRoot = GameObject.Find("_Obstacles");
+        if (obstaclesRoot == null)
+        {
+            Debug.LogWarning("[PlayerSpawnManager] No '_Obstacles' object in the scene — nothing to stamp with the Obstacle layer.");
+            return;
+        }
+
+        SetLayerRecursively(obstaclesRoot.transform, layer);
+        Debug.Log($"[PlayerSpawnManager] Stamped layer '{obstacleLayerName}' ({layer}) onto '_Obstacles' and all children.");
+    }
+
+    private static void SetLayerRecursively(Transform root, int layer)
+    {
+        root.gameObject.layer = layer;
+        for (int i = 0; i < root.childCount; i++)
+        {
+            SetLayerRecursively(root.GetChild(i), layer);
+        }
+    }
+
+    /// <summary>
+    /// Play-area rect (x/y = min X/Z), derived once from the "_Boundary" wall
+    /// children: their min/max positions inset by <see cref="boundsMargin"/>
+    /// (covers the walls' half-thickness). Falls back to the serialized rect
+    /// if the object is missing.
+    /// </summary>
+    private Rect GetPlayBounds()
+    {
+        if (boundsDerived) return playBounds;
+
+        if (boundaryRoot == null)
+        {
+            GameObject found = GameObject.Find("_Boundary");
+            if (found != null) boundaryRoot = found.transform;
+        }
+
+        if (boundaryRoot != null && boundaryRoot.childCount >= 2)
+        {
+            float minX = float.MaxValue, maxX = float.MinValue;
+            float minZ = float.MaxValue, maxZ = float.MinValue;
+            for (int i = 0; i < boundaryRoot.childCount; i++)
+            {
+                Vector3 p = boundaryRoot.GetChild(i).position;
+                if (p.x < minX) minX = p.x;
+                if (p.x > maxX) maxX = p.x;
+                if (p.z < minZ) minZ = p.z;
+                if (p.z > maxZ) maxZ = p.z;
+            }
+            playBounds = Rect.MinMaxRect(minX + boundsMargin, minZ + boundsMargin,
+                                         maxX - boundsMargin, maxZ - boundsMargin);
+            Debug.Log($"[PlayerSpawnManager] Play bounds derived from '_Boundary': x [{playBounds.xMin:0.#}, {playBounds.xMax:0.#}], z [{playBounds.yMin:0.#}, {playBounds.yMax:0.#}].");
+        }
+        else
+        {
+            playBounds = fallbackBounds;
+            Debug.LogWarning("[PlayerSpawnManager] '_Boundary' not found — using serialized fallback bounds.");
+        }
+
+        boundsDerived = true;
+        return playBounds;
+    }
+
+    private void CachePlayerCapsule()
+    {
+        NetworkManager nm = NetworkManager.Singleton;
+        GameObject prefab = nm != null && nm.NetworkConfig != null ? nm.NetworkConfig.PlayerPrefab : null;
+        CharacterController cc = prefab != null ? prefab.GetComponent<CharacterController>() : null;
+        if (cc != null)
+        {
+            playerRadius = cc.radius;
+            playerHeight = cc.height;
+        }
+    }
+
+    /// <summary>
+    /// Samples a random in-bounds point that (a) doesn't overlap the Obstacle
+    /// layer with the player's own capsule and (b) keeps
+    /// <see cref="minPlayerSeparation"/> from every position in
+    /// <paramref name="occupied"/>. Falls back to the last candidate (with a
+    /// warning) after <see cref="maxPlacementAttempts"/> — never hangs.
+    /// </summary>
+    private Vector3 FindValidRandomPoint(List<Vector3> occupied)
+    {
+        Rect bounds = GetPlayBounds();
+        Vector3 candidate = Vector3.zero;
+        float sepSqr = minPlayerSeparation * minPlayerSeparation;
+
+        for (int attempt = 0; attempt < maxPlacementAttempts; attempt++)
+        {
+            candidate = new Vector3(
+                Random.Range(bounds.xMin, bounds.xMax),
+                spawnHeight,
+                Random.Range(bounds.yMin, bounds.yMax));
+
+            bool tooClose = false;
+            foreach (Vector3 taken in occupied)
+            {
+                Vector3 flat = candidate - taken;
+                flat.y = 0f;
+                if (flat.sqrMagnitude < sepSqr) { tooClose = true; break; }
+            }
+            if (tooClose) continue;
+
+            if (obstacleMask != 0)
+            {
+                Vector3 capsuleBottom = candidate + Vector3.up * playerRadius;
+                Vector3 capsuleTop = candidate + Vector3.up * Mathf.Max(playerRadius, playerHeight - playerRadius);
+                if (Physics.CheckCapsule(capsuleBottom, capsuleTop, playerRadius, obstacleMask))
+                {
+                    continue; // inside a tree/crate/prop — re-sample
+                }
+            }
+
+            return candidate;
+        }
+
+        Debug.LogWarning($"[PlayerSpawnManager] No valid spawn found in {maxPlacementAttempts} attempts — using last candidate {candidate}. Check map bounds / obstacle density.");
+        return candidate;
+    }
+
     // ---------- Session lifecycle ----------
 
     private void HandleServerStarted()
     {
-        nextSpawnIndex = 0;
         SetOfflinePlayerActive(false);
     }
 
@@ -132,20 +297,34 @@ public class PlayerSpawnManager : MonoBehaviour
             return;
         }
 
-        Vector3 point = spawnPoints[nextSpawnIndex % spawnPoints.Length];
-        nextSpawnIndex++;
+        CachePlayerCapsule();
 
+        // G2 design choice: connect-time (pre-round lobby) has no meaningful
+        // hunter/runner split — everyone gets a plain map-bounded random valid
+        // point. Round-start roles are handled by PlaceAllPlayersRandom.
+        List<Vector3> occupied = new List<Vector3>();
+        foreach (ulong otherId in nm.ConnectedClientsIds)
+        {
+            if (otherId == clientId) continue;
+            if (nm.ConnectedClients.TryGetValue(otherId, out NetworkClient other) && other.PlayerObject != null)
+            {
+                occupied.Add(other.PlayerObject.transform.position);
+            }
+        }
+
+        Vector3 point = FindValidRandomPoint(occupied);
         PlacePlayer(client.PlayerObject, point);
-        Debug.Log($"[PlayerSpawnManager] Placed player of client {clientId} at spawn point {point}.");
+        Debug.Log($"[PlayerSpawnManager] Placed player of client {clientId} at {point}.");
     }
 
     /// <summary>
-    /// F4: re-places every connected player's object on a random, distinct
-    /// spawn point (wrapping if there are more players than points). Called by
-    /// GameRoundManager at each round start — including Play Again — so nobody
-    /// begins a round already inside another player's catch radius. Server-only.
+    /// G2: round-start placement. The Hunter lands on the hand-placed centre
+    /// marker; every runner gets a random valid point — in-bounds, off the
+    /// Obstacle layer, and at least <see cref="minPlayerSeparation"/> from the
+    /// Hunter and every runner placed before them. Called by GameRoundManager
+    /// at each round start including Play Again. Server-only.
     /// </summary>
-    public void PlaceAllPlayersRandom()
+    public void PlaceAllPlayersRandom(ulong hunterClientId)
     {
         NetworkManager nm = NetworkManager.Singleton;
         if (nm == null || !nm.IsServer)
@@ -154,29 +333,45 @@ public class PlayerSpawnManager : MonoBehaviour
             return;
         }
 
-        // Fisher–Yates shuffle of the spawn indices.
-        int[] order = new int[spawnPoints.Length];
-        for (int i = 0; i < order.Length; i++)
+        CachePlayerCapsule();
+
+        Vector3 hunterPos;
+        if (hunterSpawnPoint != null)
         {
-            order[i] = i;
+            hunterPos = hunterSpawnPoint.position;
         }
-        for (int i = order.Length - 1; i > 0; i--)
+        else
         {
-            int j = Random.Range(0, i + 1);
-            (order[i], order[j]) = (order[j], order[i]);
+            hunterPos = new Vector3(0f, spawnHeight, 0f);
+            Debug.LogWarning("[PlayerSpawnManager] hunterSpawnPoint not assigned — Hunter placed at world origin. " +
+                             "Place the marker at the map centre in the Editor and wire it on PlayerSpawnManager.");
         }
 
+        List<Vector3> occupied = new List<Vector3> { hunterPos };
         int placed = 0;
+
         foreach (ulong clientId in nm.ConnectedClientsIds)
         {
             if (!nm.ConnectedClients.TryGetValue(clientId, out NetworkClient client) || client.PlayerObject == null)
             {
                 continue;
             }
-            PlacePlayer(client.PlayerObject, spawnPoints[order[placed % order.Length]]);
+
+            if (clientId == hunterClientId)
+            {
+                PlacePlayer(client.PlayerObject, hunterPos);
+            }
+            else
+            {
+                Vector3 point = FindValidRandomPoint(occupied);
+                occupied.Add(point);
+                PlacePlayer(client.PlayerObject, point);
+            }
             placed++;
         }
-        Debug.Log($"[PlayerSpawnManager] Re-placed {placed} player(s) on shuffled spawn points for the new round.");
+
+        Debug.Log($"[PlayerSpawnManager] Round placement: hunter (client {hunterClientId}) at {hunterPos}, " +
+                  $"{placed - 1} runner(s) on random valid points.");
     }
 
     private static void PlacePlayer(NetworkObject playerObject, Vector3 position)

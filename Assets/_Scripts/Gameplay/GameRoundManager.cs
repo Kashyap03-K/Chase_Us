@@ -212,7 +212,7 @@ public class GameRoundManager : NetworkBehaviour
         PlayerSpawnManager spawner = FindFirstObjectByType<PlayerSpawnManager>();
         if (spawner != null)
         {
-            spawner.PlaceAllPlayersRandom();
+            spawner.PlaceAllPlayersRandom(hunter);
         }
         else
         {
