@@ -4758,13 +4758,20 @@ MonoBehaviour:
   referenceResolution: {x: 1920, y: 1080}
   canvasSortingOrder: 100
   hostButtonAnchor: {x: 0.32, y: 0.3}
+  selfRoomButtonAnchor: {x: 0.5, y: 0.3}
   joinButtonAnchor: {x: 0.68, y: 0.3}
   buttonSize: {x: 800, y: 220}
   backButtonAnchor: {x: 0.5, y: 0.06}
   backButtonSize: {x: 500, y: 100}
   hostButtonSprite: {fileID: 21300000, guid: 42f26f6ca4411e6428ab8e92fdc89b3f, type: 3}
+  selfRoomButtonSprite: {fileID: 0}
   joinButtonSprite: {fileID: 21300000, guid: 8368020948ac7bb468ddc9d32530798b, type: 3}
   backButtonSprite: {fileID: 21300000, guid: 8031527ca7d183c48841b036ebb0e778, type: 3}
+  selfRoomPlayerPrefab: {fileID: 4711000001, guid: 8fbc135343f7268d9df5fd7561fb3ddb, type: 3}
+  selfRoomSpawnPoint: {x: -8, y: 0.2, z: -7}
+  selfRoomVisualOffsetY: 0.35
+  selfRoomVisualScaleMul: 1
+  selfRoomAnimatorController: {fileID: 9100000, guid: 44b09fc5825055241948a053361a5143, type: 2}
 --- !u!114 &954808352
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6057,7 +6064,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: e357d831b048e204fb2a918d3b8ba691, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5866666021909216657, guid: e357d831b048e204fb2a918d3b8ba691, type: 3}
       propertyPath: m_Controller
@@ -7054,6 +7061,9 @@ MonoBehaviour:
   jumpHeight: 1.5
   jumpKey: 32
   sprintKey: 304
+  hookKey: 101
+  hookDurationSeconds: 0.6
+  hookCooldownSeconds: 0.8
   orbitCamera: {fileID: 0}
   animator: {fileID: 0}
   speedParameterName: Speed

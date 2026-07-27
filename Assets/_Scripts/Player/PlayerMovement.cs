@@ -43,6 +43,12 @@ public class PlayerMovement : NetworkBehaviour
 
     [Header("Input")]
     [SerializeField] private KeyCode sprintKey = KeyCode.LeftShift;
+    [Tooltip("Chain-tag hook. On press: broadcast the Punch animation and open a hook window. Any player-player contact during this window and only during this window will be treated as a catch attempt by GameRoundManager.")]
+    [SerializeField] private KeyCode hookKey = KeyCode.E;
+    [Tooltip("Length of the hook window in seconds — should match the Punch clip so the catch registers only while the arm is extended.")]
+    [SerializeField] private float hookDurationSeconds = 0.6f;
+    [Tooltip("Minimum seconds between two hook attempts. Prevents input-spam catches.")]
+    [SerializeField] private float hookCooldownSeconds = 0.8f;
 
     [Header("Camera-Relative Movement")]
     [SerializeField] private OrbitCamera orbitCamera;
@@ -69,6 +75,7 @@ public class PlayerMovement : NetworkBehaviour
         public Vector2 Move;        // horizontal input, magnitude ≤ 1
         public bool Sprint;
         public bool JumpPressed;    // edge, consumed one-shot by the server
+        public bool HookPressed;    // edge, consumed one-shot by the server (opens the catch window)
         public float CameraYaw;     // owner's camera yaw for camera-relative movement
 
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
@@ -76,6 +83,7 @@ public class PlayerMovement : NetworkBehaviour
             serializer.SerializeValue(ref Move);
             serializer.SerializeValue(ref Sprint);
             serializer.SerializeValue(ref JumpPressed);
+            serializer.SerializeValue(ref HookPressed);
             serializer.SerializeValue(ref CameraYaw);
         }
     }
@@ -88,7 +96,21 @@ public class PlayerMovement : NetworkBehaviour
 
     private float tippedSinceTime = -1f;   // Change 3 recovery timer — server-only
 
+    // Server-only hook window: while Time.time is below this, catch attempts by
+    // this player are considered valid. Set when the owner's HookPressed edge is
+    // consumed; queried by GameRoundManager.ReportContact.
+    private float hookWindowEndsAt = -1f;
+    private float hookNextAllowedAt = -1f;   // cooldown to block input spam
+
     private bool IsCaughtInChain => chainLink != null && chainLink.IsCaught.Value;
+
+    /// <summary>
+    /// Server-only: true while this player's hook window is open. Read by
+    /// <see cref="GameRoundManager.ReportContact"/> to gate catches — a
+    /// chain-side player must be hooking for a runner touch to convert to a
+    /// catch. Always false on non-server instances.
+    /// </summary>
+    public bool IsHookActive => IsServer && Time.time < hookWindowEndsAt;
 
     // True once ChainManager has made this player's body dynamic (the Hunter from
     // registration, everyone else from the moment they're caught). Server-side
@@ -173,7 +195,14 @@ public class PlayerMovement : NetworkBehaviour
         // ---- Offline / non-networked: exactly the pre-KAS-27 behavior. ----
         if (!IsNetworkedAndSpawned)
         {
-            float animSpeed = ApplyMovement(GatherInput(), Time.deltaTime);
+            MoveInput input = GatherInput();
+            if (input.HookPressed && animator != null)
+            {
+                // Offline: no catch pipeline exists — just play the anim so
+                // Self Room / offline test scenes can preview the swing.
+                animator.SetTrigger(PunchTriggerName);
+            }
+            float animSpeed = ApplyMovement(input, Time.deltaTime);
             if (animator != null)
             {
                 animator.SetFloat(speedParameterName, animSpeed);
@@ -187,8 +216,9 @@ public class PlayerMovement : NetworkBehaviour
             MoveInput input = GatherInput();
             if (IsServer)
             {
-                // Host shortcut: no RPC to ourselves. Preserve an unconsumed jump edge.
+                // Host shortcut: no RPC to ourselves. Preserve unconsumed edges.
                 input.JumpPressed |= pendingInput.JumpPressed;
+                input.HookPressed |= pendingInput.HookPressed;
                 pendingInput = input;
             }
             else
@@ -199,6 +229,21 @@ public class PlayerMovement : NetworkBehaviour
 
         if (IsServer)
         {
+            // Hook input consumption is locomotion-independent — anyone can throw
+            // a hook whether they're on the CC path, the physics-driven Hunter,
+            // or a Rigidbody-driven caught player. GameRoundManager decides who
+            // may actually catch (chain-side only); this just opens the window.
+            if (pendingInput.HookPressed)
+            {
+                pendingInput.HookPressed = false;
+                if (Time.time >= hookNextAllowedAt)
+                {
+                    hookWindowEndsAt = Time.time + hookDurationSeconds;
+                    hookNextAllowedAt = Time.time + hookCooldownSeconds;
+                    BroadcastHookAnim();
+                }
+            }
+
             if (IsCaughtInChain)
             {
                 // F3: chained players are Rigidbody+joint-driven — forces are applied
@@ -303,6 +348,24 @@ public class PlayerMovement : NetworkBehaviour
         else if (animator != null)
         {
             animator.SetTrigger(JumpTriggerName);
+        }
+    }
+
+    /// <summary>
+    /// Server-only helper — fire the Punch (hook) anim on every peer when a
+    /// player throws a hook. Reuses the same clip GameRoundManager uses to
+    /// announce a confirmed catch; the distinction (attempt vs. confirmation)
+    /// lives in game state, not the animation.
+    /// </summary>
+    private void BroadcastHookAnim()
+    {
+        if (IsNetworkedAndSpawned)
+        {
+            PlayPunchAnimEveryoneRpc();
+        }
+        else if (animator != null)
+        {
+            animator.SetTrigger(PunchTriggerName);
         }
     }
 
@@ -469,6 +532,7 @@ public class PlayerMovement : NetworkBehaviour
             Move = move,
             Sprint = Input.GetKey(sprintKey),
             JumpPressed = Input.GetKeyDown(jumpKey),
+            HookPressed = Input.GetKeyDown(hookKey),
             CameraYaw = orbitCamera != null ? orbitCamera.Yaw : 0f
         };
     }
@@ -476,9 +540,10 @@ public class PlayerMovement : NetworkBehaviour
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
     private void SubmitInputRpc(MoveInput input)
     {
-        // Latest-wins, except an unconsumed jump edge survives being overwritten
-        // by a later frame's input that arrived before the server ticked.
+        // Latest-wins, except unconsumed edges (jump, hook) survive being
+        // overwritten by a later frame's input that arrived before the server ticked.
         input.JumpPressed |= pendingInput.JumpPressed;
+        input.HookPressed |= pendingInput.HookPressed;
         pendingInput = input;
     }
 

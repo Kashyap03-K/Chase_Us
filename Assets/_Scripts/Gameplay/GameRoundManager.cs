@@ -299,14 +299,32 @@ public class GameRoundManager : NetworkBehaviour
             return;
         }
 
-        if (IsChainSide(playerA) && uncaughtRunners.Contains(playerB))
+        if (IsChainSide(playerA) && uncaughtRunners.Contains(playerB) && IsHooking(playerA))
         {
             OnCatch(catcherId: playerA, caughtId: playerB);
         }
-        else if (IsChainSide(playerB) && uncaughtRunners.Contains(playerA))
+        else if (IsChainSide(playerB) && uncaughtRunners.Contains(playerA) && IsHooking(playerB))
         {
             OnCatch(catcherId: playerB, caughtId: playerA);
         }
+    }
+
+    /// <summary>
+    /// Server-side: is <paramref name="clientId"/>'s player currently inside
+    /// their hook window? A chain-side player only catches when actively
+    /// hooking — proximity alone no longer converts.
+    /// </summary>
+    private static bool IsHooking(ulong clientId)
+    {
+        Unity.Netcode.NetworkManager nm = Unity.Netcode.NetworkManager.Singleton;
+        if (nm == null ||
+            !nm.ConnectedClients.TryGetValue(clientId, out Unity.Netcode.NetworkClient client) ||
+            client.PlayerObject == null)
+        {
+            return false;
+        }
+        PlayerMovement pm = client.PlayerObject.GetComponent<PlayerMovement>();
+        return pm != null && pm.IsHookActive;
     }
 
     private bool IsChainSide(ulong clientId)
